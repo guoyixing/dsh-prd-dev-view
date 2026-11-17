@@ -1,0 +1,15 @@
+node_modules/
+.npm-cache/
+.scratch*/
+.test-*/
+coverage/
+*.tgz
+*.log
+.env
+.env.*
+!.env.example
+.npmrc
+.dsh/
+*.prdview.json
+.DS_Store
+Thumbs.db

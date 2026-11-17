@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "PRD dev view",
+    "description": "Turns a PRD and its code into one data file. A Dev view conversation tab shows the feature matrix, full feature cards with link highlighting, a unified issue and change checklist, overview, impact map and shared rules. The model edits through prd_view / prd_view_edit; closed items are kept, never deleted, and code sync marks affected items for review. Settings › PRD dev view registers, imports and protects data.",
+    "detail": "docs/DETAIL.md"
+  }
+}

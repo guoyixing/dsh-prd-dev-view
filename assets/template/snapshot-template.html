@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 研发视图</title>
+<style>
+:root{
+  --bg:#f3f5f9;--panel:#fff;--line:#e2e7ef;--line2:#eef1f6;--text:#1e293b;--muted:#64748b;--faint:#94a3b8;
+  --kP:#0e7490;--kR:#2563eb;--kS:#475569;--kA:#c2410c;--kQ:#be123c;--kC:#047857;--kF:#334155;--kST:#1e293b;--kG:#4f46e5;--kM:#0f766e;--kO:#334155;
+  --ok:#15803d;--okb:#dcfce7;--pending:#b45309;--pendingb:#fef3c7;--defer:#64748b;--deferb:#e2e8f0;
+  --change:#b91c1c;--changeb:#fee2e2;--merge:#1d4ed8;--mergeb:#dbeafe;--confirm:#a16207;--confirmb:#fef9c3;
+  --miss:#7c3aed;--missb:#ede9fe;--new:#7c3aed;--newb:#ede9fe;--minor:#b45309;--minorb:#fef3c7;--chg:#c2410c;--chgb:#ffedd5;--pend:#475569;--pendb:#e2e8f0;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font:13px/1.55 -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg)}
+button{font:inherit;cursor:pointer;color:inherit}
+.shell{display:grid;grid-template-rows:auto minmax(0,1fr);height:100vh}
+.appbar{background:#0f172a;color:#e2e8f0;display:flex;align-items:center;gap:12px;padding:0 16px;height:48px;z-index:30}
+.appbar .prd{font-weight:700;color:#fff;font-size:15px}
+.appbar .ptag{font-size:11px;background:#f59e0b;color:#1e293b;border-radius:4px;padding:0 6px;font-weight:700}
+.appbar .pmeta{font-size:12px;color:#94a3b8}
+.vtabs{display:flex;gap:0;margin-left:12px;height:100%}
+.vtab{background:none;border:none;color:#cbd5e1;padding:0 13px;height:100%;border-bottom:3px solid transparent}
+.vtab:hover{color:#fff}
+.vtab.on{color:#fff;border-bottom-color:#f59e0b;font-weight:600}
+.vtab em{font-style:normal;font-size:11px;background:#334155;border-radius:999px;padding:0 6px;margin-left:5px;color:#e2e8f0}
+.appbar .branch{margin-left:auto;font-size:12px;color:#93c5fd;border:1px solid #1e3a8a;background:#172554;border-radius:6px;padding:2px 8px;cursor:pointer}
+.body{display:grid;grid-template-columns:minmax(0,1fr) 408px;min-height:0}
+#view{min-width:0;min-height:0;overflow:auto;position:relative}
+#view.cardmode{overflow:hidden;display:flex;flex-direction:column}
+#insp{background:#fff;border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.ipane{flex:1;overflow:auto;padding:14px 16px 24px}
+.crumb{display:flex;align-items:center;gap:8px;padding:7px 16px;background:#fff;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);flex:none}
+.crumb .back{border:1px solid var(--line);background:#fff;border-radius:6px;padding:1px 9px}
+.crumb .back:hover{border-color:#0f172a}
+.crumb b{color:var(--text)}
+.vpad{padding:14px 18px 28px}
+.vhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.vhead h1{font-size:16px;margin:0}
+.vhead .sub{color:var(--muted);font-size:12px}
+.k-P{--k:var(--kP)}.k-R{--k:var(--kR)}.k-S{--k:var(--kS)}.k-A{--k:var(--kA)}.k-Q{--k:var(--kQ)}.k-C{--k:var(--kC)}.k-F{--k:var(--kF)}.k-ST{--k:var(--kST)}.k-G{--k:var(--kG)}.k-M{--k:var(--kM)}.k-O{--k:var(--kO)}
+.badge{font-size:11px;border-radius:4px;padding:0 6px;font-weight:600;white-space:nowrap;line-height:18px;display:inline-block}
+.b-ok{background:var(--okb);color:var(--ok)}.b-pending{background:var(--pendingb);color:var(--pending)}
+.b-defer{background:var(--deferb);color:var(--defer)}.b-change{background:var(--changeb);color:var(--change)}
+.b-merge{background:var(--mergeb);color:var(--merge)}.b-confirm{background:var(--confirmb);color:var(--confirm)}
+.b-conf{background:#ffe4e6;color:var(--kQ)}.b-miss{background:var(--missb);color:var(--miss)}.b-typo{background:#e2e8f0;color:#475569}
+.b-new{background:var(--newb);color:var(--new)}.b-minor{background:var(--minorb);color:var(--minor)}.b-chg{background:var(--chgb);color:var(--chg)}.b-pend{background:var(--pendb);color:var(--pend)}
+.b-block{background:#be123c;color:#fff}.b-impact{background:#ffe4e6;color:#be123c}.b-low{background:#f1f5f9;color:#64748b}
+/* 通用选中 */
+[data-sel]{cursor:pointer;transition:opacity .15s,box-shadow .15s}
+.dimroot [data-sel]:not(.on):not(.rel):not(.keep){opacity:.25}
+[data-sel].on{outline:2px solid #0f172a;outline-offset:1px}
+[data-sel].rel{box-shadow:0 0 0 2px rgba(37,99,235,.45)}
+.chain [data-sel].on{outline-color:#f59e0b}
+/* ---------- L2 功能清单 ---------- */
+.l2bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.fchip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:2px 10px;display:inline-flex;gap:6px;align-items:center;font-size:12px}
+.fchip i{width:9px;height:9px;border-radius:3px;display:inline-block}
+.fchip b{font-weight:700}
+.fchip.on{border-color:#0f172a;background:#0f172a;color:#fff}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;margin-left:auto}
+.seg button{border:none;background:#fff;padding:3px 12px;font-size:12px}
+.seg button.on{background:#0f172a;color:#fff}
+.tog{display:flex;align-items:center;gap:5px;color:var(--muted);font-size:12px;cursor:pointer;user-select:none}
+.l2grid{display:grid;grid-template-columns:118px repeat(9,minmax(108px,1fr));gap:8px;min-width:1150px}
+.l2grid .ch{font-size:12px;font-weight:600;color:var(--muted);text-align:center;padding:4px 0;border-bottom:2px solid var(--line)}
+.l2grid .rh{background:#1e293b;color:#fff;border-radius:10px;padding:10px;display:flex;flex-direction:column;justify-content:center}
+.l2grid .rh b{font-size:13px}.l2grid .rh span{font-size:11px;color:#cbd5e1}
+.l2grid .cell{background:rgba(255,255,255,.55);border:1px dashed var(--line);border-radius:10px;padding:5px;display:flex;flex-direction:column;gap:6px;min-height:84px}
+.tile{background:#fff;border:1px solid var(--line);border-top:4px solid var(--fc);border-radius:9px;padding:6px 8px 7px;position:relative}
+.tile:hover{box-shadow:0 3px 10px rgba(15,23,42,.1)}
+.tile .tid{font-size:11px;color:var(--faint);font-weight:600}
+.tile .tn{font-weight:700;line-height:1.35;margin:1px 0 4px}
+.tile .tb{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.tile .qn{font-size:11px;color:var(--kQ);font-weight:700}
+.tile .qn.blk{background:#be123c;color:#fff;border-radius:4px;padding:0 4px}
+.tile .an{font-size:11px;color:var(--kA)}
+.tile .deep{position:absolute;right:6px;top:5px;font-size:10px;color:#fff;background:#dc2626;border-radius:4px;padding:0 5px}
+.seg button[disabled]{color:var(--faint);cursor:not-allowed;background:#f8fafc}
+.crumb .seg{margin-left:auto}
+.tile .tnow{font-size:11px;color:var(--muted);margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.fs-new{--fc:var(--new)}.fs-change{--fc:var(--chg)}.fs-minor{--fc:#f59e0b}.fs-ok{--fc:var(--ok)}.fs-pending{--fc:#94a3b8}
+.l2tbl{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:12px}
+.l2tbl th{background:#f8fafc;color:var(--muted);font-weight:600;text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.l2tbl td{padding:7px 8px;border-bottom:1px solid var(--line2);vertical-align:top}
+.l2tbl tr[data-sel]:hover td{background:#f8fafc}
+.l2tbl td.fid{font-weight:700;white-space:nowrap}
+.l2tbl td.fn{font-weight:600;white-space:nowrap}
+.l2note{margin-top:14px;color:var(--muted);font-size:12px;display:flex;gap:16px;flex-wrap:wrap}
+.l2note span i{display:inline-block;width:10px;height:4px;border-radius:2px;vertical-align:middle;margin-right:4px;background:var(--fc)}
+/* ---------- L1 业务全貌 ---------- */
+.lane{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px 16px;margin-bottom:14px}
+.lane h2{font-size:14px;margin:0 0 10px;display:flex;align-items:center;gap:10px}
+.lane h2 small{font-weight:400;color:var(--muted);font-size:12px}
+.sm{display:grid;grid-template-columns:40px 150px 1fr 150px 1fr 110px 1fr 160px 1fr;align-items:center;gap:0;min-width:1250px}
+.sbox{border:2px solid #1e293b;border-radius:12px;padding:8px 10px 10px;background:#f8fafc;min-height:150px;align-self:stretch}
+.sbox h3{margin:0 0 6px;font-size:14px;display:flex;justify-content:space-between;align-items:center}
+.sbox h3 span{font-size:11px;font-weight:400;color:var(--muted)}
+.sbox .ops{display:flex;flex-direction:column;gap:5px}
+.startdot{width:22px;height:22px;border-radius:50%;background:#1e293b;justify-self:center}
+.gut{display:flex;flex-direction:column;gap:10px;padding:0 8px;align-self:center}
+.gut .fop{width:100%;justify-content:flex-start}
+.arrow{font-size:11px;color:var(--muted);text-align:center;line-height:1.2}
+.arrow .ln{height:0;border-top:2px solid #64748b;position:relative;margin:4px 2px}
+.arrow .ln::after{content:"";position:absolute;right:-2px;top:-6px;border:5px solid transparent;border-left:8px solid #64748b}
+.arrow.back .ln::after{right:auto;left:-2px;border-left:5px solid transparent;border-right:8px solid #64748b}
+.fop{display:flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--line);border-left:4px solid var(--fc);border-radius:7px;padding:3px 7px;font-size:12px;text-align:left}
+.fop b{font-size:11px;color:var(--faint)}
+.fop .qn{margin-left:auto;font-size:10px;color:var(--kQ);font-weight:700}
+.backrow{display:grid;grid-template-columns:40px 150px 1fr 150px 1fr 110px 1fr 160px 1fr;min-width:1250px;margin-top:6px;padding-bottom:22px}
+.backarc{grid-column:3 / 8;border:2px dashed #64748b;border-top:none;border-radius:0 0 14px 14px;height:30px;position:relative;margin:0 40px}
+.backarc .fop{position:absolute;left:50%;top:14px;transform:translateX(-50%);white-space:nowrap}
+.backarc::before{content:"";position:absolute;left:-7px;top:-8px;border:6px solid transparent;border-bottom:9px solid #64748b}
+.allstate{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);font-size:12px;color:var(--muted)}
+.chainbtn{border:1px solid #f59e0b;background:#fffbeb;color:#92400e;border-radius:7px;padding:3px 10px;font-size:12px}
+.chainbtn.on{background:#f59e0b;color:#1e293b}
+.chainline{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px;margin-top:8px}
+.chainline .cstep{background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:1px 7px}
+.omap{width:100%;min-width:1000px;height:auto;display:block}
+.omap .onode rect{fill:#fff;stroke:#cbd5e1;stroke-width:1.5}
+.omap .onode.int rect{fill:#f1f5f9;stroke:#1e293b;stroke-width:2}
+.omap .onode text{font-size:13px;fill:#1e293b;text-anchor:middle;font-weight:600;pointer-events:none}
+.omap .onode text.s{font-size:10.5px;fill:#64748b;font-weight:400}
+.omap .onode.on rect{stroke:#0f172a;stroke-width:3}
+.omap .onode.rel rect{stroke:#2563eb;stroke-width:2.5}
+.omap .edge{stroke:#94a3b8;stroke-width:1.5;fill:none;marker-end:url(#arr)}
+.omap .el{font-size:10.5px;fill:#475569;text-anchor:middle}
+.omap .elbg{fill:#f8fafc}
+/* ---------- 冲突看板 / 改造清单 ---------- */
+.board{display:grid;gap:12px;align-items:start}
+.col{background:#eef1f6;border-radius:12px;padding:10px}
+.col h3{margin:0 0 8px;font-size:13px;display:flex;align-items:center;gap:6px}
+.col h3 em{font-style:normal;color:var(--muted);font-weight:400}
+.bcard{background:#fff;border:1px solid var(--line);border-left:4px solid var(--k);border-radius:9px;padding:8px 10px;margin-bottom:8px}
+.bcard .bh{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.bcard .bid{font-weight:700;color:var(--k);font-size:12px}
+.bcard .bt{font-weight:600}
+.bcard .bb{color:var(--muted);font-size:12px;margin-top:3px}
+.bcard .bf{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.mini{font-size:11px;border:1px solid var(--line);background:#f8fafc;border-radius:5px;padding:0 6px}
+.mini.f{border-color:#cbd5e1}
+.mini.q{color:var(--kQ);border-color:#fecdd3;background:#fff1f2}
+/* ---------- 共用规则矩阵 ---------- */
+.gtbl{border-collapse:separate;border-spacing:0;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.gtbl th,.gtbl td{border-bottom:1px solid var(--line2);border-right:1px solid var(--line2);padding:6px 8px;font-size:12px}
+.gtbl thead th{background:#f8fafc;color:var(--muted);font-weight:600;vertical-align:bottom}
+.gtbl thead th.fh{width:72px;min-width:72px;max-width:72px;text-align:center;padding:6px 4px;font-weight:400;line-height:1.35;vertical-align:bottom}
+.gtbl thead th.fh b{display:block;color:var(--text);font-size:11px}
+.gtbl thead th.fh span{display:block;font-size:11px}
+.gtbl td.rn{min-width:260px}
+.gtbl td.rn b{display:block}
+.gtbl td.rn small{color:var(--muted)}
+.gtbl td.u{text-align:center;font-weight:700;width:40px}
+.u-ok{color:var(--ok);background:#f0fdf4}.u-miss{color:#fff;background:#dc2626}.u-q{color:#92400e;background:#fef3c7}.u-new{color:#7c3aed;background:#f5f3ff}
+.glegend{display:flex;gap:14px;margin:10px 0;font-size:12px;color:var(--muted)}
+.glegend span b{display:inline-block;width:20px;text-align:center;border-radius:4px;margin-right:4px}
+/* ---------- 影响地图 ---------- */
+.imap{position:relative;height:620px;min-width:980px;background:#fff;border:1px solid var(--line);border-radius:12px}
+.imap svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.mnode{position:absolute;transform:translate(-50%,-50%);width:200px;background:#fff;border:1px solid var(--line);border-top:4px solid var(--nc);border-radius:10px;padding:7px 10px;box-shadow:0 2px 8px rgba(15,23,42,.06)}
+.mnode b{display:block}
+.mnode .mi{font-size:11px;color:var(--muted);display:flex;gap:6px;align-items:center;margin-top:2px;flex-wrap:wrap}
+.mnode.center{width:230px;background:#0f172a;color:#fff;border:none;text-align:center;padding:14px}
+.mnode.center span{color:#cbd5e1;font-size:12px}
+.n-ok{--nc:var(--ok)}.n-new{--nc:var(--new)}.n-change{--nc:var(--change)}.n-confirm{--nc:#f59e0b}.n-pending{--nc:#94a3b8}
+/* ---------- 简版卡片 ---------- */
+.lc-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.lc-head .code{font-weight:700;color:#fff;background:#1e293b;border-radius:6px;padding:2px 8px;font-size:12px}
+.lc-head .title{font-size:17px;font-weight:700}
+.lc-note{margin:8px 0 14px;font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:6px 10px}
+.flow3{display:grid;grid-template-columns:1fr 30px 1fr 30px 1fr;align-items:stretch}
+.flow3 .fb{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.flow3 .fb h4{margin:0 0 6px;font-size:12px;color:var(--muted)}
+.flow3 .fb.todo{border-color:#fed7aa;background:#fff7ed}
+.flow3 .ar{display:grid;place-items:center;color:var(--faint);font-size:18px}
+.lc4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}
+.lc4 .lb{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px}
+.lc4 .lb h4{margin:0 0 8px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between}
+.lrow{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:6px 9px;margin:5px 0;width:100%;text-align:left;background:#fff}
+.lrow:hover{border-color:var(--k)}
+.lrow .lid{font-weight:700;color:var(--k);font-size:12px;min-width:34px;flex:none}
+.lrow .lt{flex:1}
+.lrow .lt small{display:block;color:var(--muted);font-size:12px}
+.relstrip{margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+/* ---------- 右侧 ---------- */
+.d-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.d-kind{font-size:11px;color:#fff;background:var(--k);border-radius:4px;padding:0 6px;line-height:18px}
+.d-id{font-weight:700;color:var(--k)}
+.ipane h2,.pane h2{font-size:16px;margin:6px 0 10px}
+.ipane h3,.pane h3{font-size:12px;color:var(--muted);margin:16px 0 6px;font-weight:600;letter-spacing:.3px}
+.kv{display:grid;grid-template-columns:86px 1fr;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.kv>div{padding:7px 9px;border-top:1px solid var(--line2)}
+.kv>div:nth-child(-n+2){border-top:none}
+.kv>div:nth-child(odd){background:#f8fafc;color:var(--muted);font-size:12px}
+.blk{border-left:3px solid var(--c);padding:4px 0 4px 10px;margin:8px 0}
+.blk b{display:block;font-size:12px;color:var(--c)}
+.cmp{display:grid;grid-template-columns:1fr 24px 1fr;align-items:stretch}
+.cmp>div{border:1px solid var(--line);border-radius:9px;padding:8px 10px}
+.cmp>div b{display:block;font-size:11px;color:var(--muted);font-weight:600;margin-bottom:2px}
+.cmp .ar{border:none;display:grid;place-items:center;color:var(--faint);font-size:16px;padding:0}
+.cmp .after{border-color:#fed7aa;background:#fff7ed}
+.rgroup{margin:6px 0}
+.rgroup>span{font-size:11px;color:var(--faint);display:block;margin-bottom:3px}
+.rchip{border:1px solid var(--line);background:#fff;border-radius:7px;padding:2px 8px;margin:0 5px 5px 0;display:inline-flex;gap:5px;align-items:center;font-size:12px;text-align:left}
+.rchip b{color:var(--k)}
+.rchip:hover{border-color:var(--k)}
+.refs{font-size:12px;color:var(--muted);border-top:1px dashed var(--line);margin-top:16px;padding-top:8px}
+.refs div{margin:3px 0}
+.refs a{color:var(--kR)}
+.btn{border:1px solid var(--line);background:#fff;border-radius:7px;padding:3px 10px;font-size:12px}
+.btn:hover{border-color:#0f172a}
+.btn.pri{background:#0f172a;color:#fff;border-color:#0f172a}
+.how{padding-left:18px;margin:6px 0;color:#334155}
+.how li{margin:4px 0}
+.note{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:#334155;font-size:12px;margin-top:8px}
+.note.warn{background:#fffbeb;border-color:#fde68a}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}
+.stat{border:1px solid var(--line);border-left:4px solid var(--k);border-radius:9px;padding:7px 10px;text-align:left;background:#fff}
+.stat strong{font-size:20px;display:block;line-height:1.2}
+.stat span{font-size:12px;color:var(--muted)}
+.ulist{margin:4px 0}
+.ulist div{display:flex;gap:6px;align-items:center;margin:3px 0}
+
+/* ======== 功能卡片（通用布局） ======== */
+.chead{background:var(--panel);border-bottom:1px solid var(--line);padding:10px 18px 9px;display:flex;flex-direction:column;gap:7px;flex:none}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.code{font-weight:700;color:#fff;background:var(--kST);border-radius:6px;padding:2px 8px;font-size:12px}
+.title{font-size:17px;font-weight:700}
+.meta{display:flex;gap:6px;flex-wrap:wrap}
+.meta span{background:var(--line2);color:var(--muted);border-radius:999px;padding:1px 9px;font-size:12px}
+.meta b{color:var(--text);font-weight:600}
+.banner{margin-left:auto;display:flex;align-items:center;gap:8px;border:1px solid #bfdbfe;background:#eff6ff;color:var(--merge);border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer}
+.banner.node.on{outline:2px solid var(--merge)}
+.lead{color:var(--muted);flex:1;min-width:320px}
+.lenses{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.lens{border:1px solid var(--line);background:#fff;border-radius:999px;padding:2px 11px;display:flex;gap:6px;align-items:center}
+.lens i{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--k)}
+.lens em{font-style:normal;color:var(--muted)}
+.lens:hover{border-color:var(--k)}
+.lens.on{border-color:var(--k);background:color-mix(in srgb,var(--k) 9%,#fff);color:var(--k);font-weight:600}
+.toggle{display:flex;align-items:center;gap:6px;color:var(--muted);margin-left:6px;user-select:none;cursor:pointer}
+.toggle input{margin:0}
+.center{display:flex;flex-direction:column;min-width:0;min-height:0;flex:1}
+.wrap{flex:1;overflow:auto;position:relative}
+.matrix{position:relative;display:grid;grid-template-columns:92px repeat(5,minmax(214px,1fr));column-gap:12px;row-gap:12px;padding:0 16px 22px;min-width:1240px}
+.corner{position:sticky;top:0;z-index:8;background:var(--bg);padding-top:12px}
+.stage{position:sticky;top:0;z-index:8;margin-top:12px;background:#1e293b;color:#fff;border-radius:10px;padding:7px 10px;display:flex;gap:9px;align-items:center;cursor:pointer;box-shadow:0 -12px 0 0 var(--bg)}
+.stage .sn{width:22px;height:22px;border-radius:50%;background:#334155;display:grid;place-items:center;font-size:12px;font-weight:700;flex:none}
+.stage b{display:block;font-size:13px}
+.stage span{display:block;font-size:11px;color:#cbd5e1}
+.stage.on,.stage.rel{background:#b45309}
+.stage.on .sn,.stage.rel .sn{background:#f59e0b;color:#1e293b}
+.guide{position:absolute;border-radius:12px;background:rgba(148,163,184,.08);border:1px dashed rgba(148,163,184,.35);z-index:0;pointer-events:none;transition:background .2s}
+.guide.act{background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.6)}
+.lane-label{text-align:right;padding:8px 10px 8px 0;border-right:2px solid var(--line);z-index:1}
+.lane-label b{display:block;font-size:13px}
+.lane-label .no{display:inline-block;font-size:11px;color:var(--muted);background:var(--line2);border-radius:4px;padding:0 5px;margin-top:2px}
+.lane-label small{display:block;color:var(--faint);font-size:11px;margin-top:4px;line-height:1.4}
+.lane-cell{background:#fff;border:1px solid var(--line);border-radius:10px;padding:7px;display:flex;flex-direction:column;gap:3px;z-index:1;min-width:0}
+.lane-sub{grid-column:2/-1;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));column-gap:12px;row-gap:8px;grid-auto-flow:row dense;z-index:1;min-width:0}
+.pcard{border:1px solid var(--line);border-left:4px solid var(--kP);border-radius:8px;padding:5px 8px;cursor:pointer;background:#fff}
+.pcard:hover{background:#f0fdfa}
+.pcard .pid{font-size:11px;font-weight:700;color:var(--kP);margin-right:4px}
+.pcard .cond{font-weight:600}
+.pcard .act{color:var(--muted);font-size:12px;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.step{display:flex;gap:7px;padding:4px 6px;border-radius:8px;border:1px solid transparent;cursor:pointer;background:#fff}
+.step:hover{background:#f8fafc;border-color:var(--line)}
+.step .num{width:18px;height:18px;border-radius:50%;background:#e2e8f0;font-size:11px;display:grid;place-items:center;flex:none;margin-top:1px;color:#334155}
+.step.gap{border:1px dashed #fca5a5;background:#fff7f7}
+.step.gap .num{background:#fecaca;color:#991b1b}
+.step .sm2{min-width:0;flex:1}
+.st-t{font-weight:600}
+.st-d{color:var(--muted);font-size:11.5px;line-height:1.45}
+.tag{font-size:11px;padding:0 6px;border-radius:4px;margin-left:4px;background:#f1f5f9;color:var(--muted);font-weight:400;white-space:nowrap}
+.tag.adj{background:var(--pendingb);color:var(--pending)}
+.tag.gp{background:var(--changeb);color:var(--change)}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
+.chip{display:inline-flex;align-items:center;gap:4px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e40af;border-radius:6px;padding:0 6px;font-size:12px;cursor:pointer;line-height:20px}
+.chip .dot{width:6px;height:6px;border-radius:50%;background:var(--ok)}
+.chip .dot.pending{background:var(--pending)}.chip .dot.defer{background:var(--defer)}
+.chip sup{color:var(--kQ);font-weight:700;font-size:10px;line-height:1}
+.chip:hover{background:#dbeafe}
+.item{background:#fff;border:1px solid var(--line);border-left:4px solid var(--k);border-radius:9px;padding:5px 9px 5px;cursor:pointer;min-width:0}
+.item:hover{box-shadow:0 2px 8px rgba(15,23,42,.08)}
+.item .ih{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.item .iid{font-size:11px;font-weight:700;color:var(--k)}
+.item .it{font-weight:600}
+.item .ib{color:var(--muted);font-size:12px;margin-top:1px;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.item.miss{--k:var(--miss)}
+.ends{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--k);margin-top:5px}
+.ends i{flex:1;height:0;border-top:2px dashed currentColor;opacity:.45}
+.ends span{background:color-mix(in srgb,var(--k) 9%,#fff);border-radius:4px;padding:0 5px;white-space:nowrap}
+.node{transition:opacity .15s,box-shadow .15s}
+.node.on{outline:2px solid #0f172a;outline-offset:1px}
+.node.rel{box-shadow:0 0 0 2px rgba(37,99,235,.45)}
+.matrix.dim .node:not(.on):not(.rel):not(.carry):not(.stage){opacity:.2}
+.matrix.dim .step.carry:not(.on):not(.rel) .st-t,.matrix.dim .step.carry:not(.on):not(.rel) .st-d,.matrix.dim .step.carry:not(.on):not(.rel) .num{opacity:.3}
+.matrix.dim .step.carry .chip:not(.on):not(.rel){opacity:.3}
+.matrix.scn .node.rel{box-shadow:0 0 0 2px #f59e0b;background:#fffbeb}
+.matrix.scn .chip.rel{background:#fef3c7;border-color:#f59e0b;color:#92400e}
+body.focus .matrix:not(.dim) .node:not(.step):not(.chip):not(.stage)[data-status="ok"]{opacity:.28}
+body.focus .matrix:not(.dim) .step[data-status="ok"] .st-t,body.focus .matrix:not(.dim) .step[data-status="ok"] .st-d,body.focus .matrix:not(.dim) .step[data-status="ok"] .num{opacity:.3}
+body.focus .matrix:not(.dim) .chip[data-status="ok"]{opacity:.3}
+svg#links{position:absolute;left:0;top:0;pointer-events:none;z-index:7;overflow:visible}
+svg#links path{fill:none;stroke-width:1.7;opacity:.75}
+.legend{border-top:1px solid var(--line);background:#fff;padding:6px 16px;display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:12px;align-items:center;flex:none}
+.legend i{display:inline-block;width:18px;height:0;border-top:2px solid var(--k);vertical-align:middle;margin-right:4px}
+.legend .sp{margin-left:auto}
+.ctabs{display:flex;border-bottom:1px solid var(--line);padding:0 12px;flex:none}
+.ctabs button{border:none;background:none;padding:10px 12px 8px;border-bottom:2px solid transparent;color:var(--muted);font-weight:600}
+.ctabs button.on{color:var(--text);border-bottom-color:#0f172a}
+.pane{flex:1;overflow:auto;padding:14px 16px 24px}
+.pane[hidden]{display:none}
+.msg{font-family:ui-monospace,Consolas,"Microsoft YaHei",monospace;font-size:12px;background:#fff1f2;color:#9f1239;border-radius:6px;padding:2px 6px;display:inline}
+.pills{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.pill{border:1px solid var(--line);background:#fff;border-radius:999px;padding:2px 10px;font-size:12px}
+.pill.on{background:#0f172a;color:#fff;border-color:#0f172a}
+.sbar{display:flex;gap:4px;margin:6px 0 10px}
+.sbar button{flex:1;height:6px;border-radius:3px;border:none;background:#e2e8f0;padding:0}
+.sbar button.done{background:#94a3b8}.sbar button.cur{background:#f59e0b}
+.now{border:1px solid #fde68a;background:#fffbeb;border-radius:10px;padding:9px 11px}
+.now .who{font-size:11px;font-weight:700;color:#92400e;background:#fde68a;border-radius:4px;padding:0 6px}
+.now .stg{font-size:11px;color:#92400e;margin-left:6px}
+.now p{margin:6px 0 0}
+.nav{display:flex;gap:8px;align-items:center;margin:10px 0}
+.nav .cnt{color:var(--muted);font-size:12px;margin-right:auto}
+.mock{position:relative;border:1px solid var(--line);border-radius:10px;margin-top:10px;background:#fff;overflow:hidden;min-height:214px}
+.mock.haspop{min-height:304px}
+.mock .mt{display:flex;justify-content:space-between;padding:6px 10px;background:#f8fafc;border-bottom:1px solid var(--line);font-size:12px;font-weight:600}
+.mock .mt span{color:var(--faint);font-weight:400}
+.mock table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+.mock col.c1{width:78px}.mock col.c2{width:48px}.mock col.c3{width:34px}.mock col.c5{width:78px}
+.mock th,.mock td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mock td.wrap2{white-space:normal}
+.mock th{font-weight:600;color:var(--muted);text-align:left;padding:5px 6px;border-bottom:1px solid var(--line);font-size:11px}
+.mock td{padding:6px;border-bottom:1px solid var(--line2);vertical-align:top}
+.mock tr.f td{background:#fffbeb}
+.mock .sc{font-size:10px;color:var(--faint);display:block}
+.mock .mod{color:#1e40af}.mock .mod.w{color:var(--change)}.mock .em{color:var(--faint)}
+.srch{display:inline-grid;place-items:center;width:20px;height:18px;border:1px solid var(--line);border-radius:4px;font-size:11px;margin-left:4px;vertical-align:middle;background:#fff}
+.srch.press{background:#f59e0b;border-color:#f59e0b;color:#fff;box-shadow:0 0 0 3px rgba(245,158,11,.25)}
+.nosrch{font-size:10px;color:var(--faint);margin-left:4px}
+.pop{position:absolute;left:14px;right:14px;top:34px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 10px 30px rgba(15,23,42,.18);font-size:12px;z-index:2}
+.pop .ph{padding:6px 10px;border-bottom:1px solid var(--line);font-weight:600}
+.cand{display:flex;gap:7px;padding:5px 10px;border-bottom:1px solid var(--line2)}
+.cand .rd{width:12px;height:12px;border-radius:50%;border:1.5px solid #94a3b8;flex:none;margin-top:3px}
+.cand.pk .rd{border:4px solid #2563eb}
+.cand.off{color:var(--faint);background:#f8fafc}
+.cand.fi{outline:2px solid #f59e0b;outline-offset:-2px}
+.cand .cc{color:var(--faint)}
+.cand .why{color:var(--change);font-size:11px}
+.nn-off{padding:5px 10px;color:var(--faint);font-size:11px;border-bottom:1px solid var(--line2)}
+.pop .pf{display:flex;justify-content:flex-end;gap:6px;padding:6px 10px}
+.pop .pf span{border:1px solid var(--line);border-radius:5px;padding:0 8px}
+.pop .pf span.ok{background:#2563eb;color:#fff;border-color:#2563eb}
+.toast{margin:8px 10px 10px;border-radius:8px;padding:6px 9px;font-size:12px}
+.t-ok{background:var(--okb);color:#14532d}.t-err{background:var(--changeb);color:#7f1d1d}.t-warn{background:var(--pendingb);color:#78350f}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="appbar">
+    <span class="ptag">PRD</span>
+    <span class="prd" id="ptitle"></span>
+    <span class="pmeta" id="pmeta"></span>
+    <nav class="vtabs" id="vtabs"></nav>
+    <span class="branch" id="pbranch" hidden></span>
+  </header>
+  <div class="body">
+    <main id="view"></main>
+    <aside id="insp"><div class="ipane" id="ipane"></div></aside>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   PRD 研发视图模板
+   结构：一、PRD 数据（新 PRD 只改这一段） 二、应用（通用） 三、完整卡片渲染器（通用）
+   ===================================================================== */
+
+/* =====================================================================
+   一、PRD 数据
+   ===================================================================== */
+const PRD_META = {
+  title:'申请单提交 · 虚构教学示例',
+  prdHref:'#',
+  branch:'example/request-demo（虚构占位分支）',
+  codeNote:'未检查真实代码；example/ 路径仅为结构占位，不是实现证据。',
+  badge:{text:'虚构示例 · 非真实项目结论',sel:'A1'},
+  scopeNote:'全部业务、状态、问题和调整均为虚构教学数据，不代表任何真实项目或代码现状。PRD 引用仅为示例章节，不指向实际文档。'
+};
+
+/* 矩阵行与能力列；示例只有一个功能，且有对应的完整卡片。 */
+const OBJS = [{id:'request',name:'申请单',sub:'虚构业务对象'}];
+const CAPS = ['提交'];
+const FEAT = [{
+  id:'F-01',name:'提交申请单',obj:'request',cap:'提交',status:'new',
+  prd:'示例需求：申请人确认申请内容后提交；校验成功才进入待处理状态。',
+  now:'未检查真实实现。本例假设提交能力尚待设计，仅用于演示卡片结构。',
+  todo:'示例计划：定义提交校验、重复提交行为和结果展示。',
+  qs:['Q1'],adj:['A1'],mods:['M1'],rel:[],
+  prdRef:'示例章节：提交规则（虚构，非实际文档）',
+  code:'example/request/submit.js（示意路径，文件未核验）'
+}];
+const QS = [{
+  id:'Q1',type:'缺失',sev:'impact',title:'示例待确认：重复提交如何返回',features:['F-01'],
+  prd:'示例章节：异常处理（虚构，非实际文档）',
+  where:'虚构需求草案未定义同一申请单重复提交的返回结果。',
+  impact:'若不统一口径，演示中的客户端可能无法判断第一次提交是否成功。',
+  suggest:'示例建议：相同请求标识返回原结果，不重复创建受理记录；最终口径仍待确认。'
+}];
+const ADJ = [{
+  id:'A1',title:'示例调整：补充重复提交约定',status:'confirm',features:['F-01'],blocked:['Q1'],
+  now:'示例草案只描述单次提交；未核验任何真实代码。',
+  after:'待 Q1 确认后，将重复提交的请求标识和返回方式补入示例设计。'
+}];
+const GRULES = [{
+  id:'G1',name:'申请人身份与可提交状态',desc:'示例规则：只有申请人本人可提交草稿状态的申请单。',
+  uses:{'F-01':'new'},q:['Q1'],adj:['A1'],
+  note:'使用情况是虚构规划标记，不是对现有系统权限实现的判断。'
+}];
+const MODS = [{
+  id:'M1',name:'受理记录服务（虚构）',sub:'接收提交结果',io:'写',need:'confirm',features:['F-01'],
+  q:['Q1'],adj:['A1'],note:'示例边界：申请单状态和受理记录应保持一致，实际系统是否存在此服务尚未核验。',
+  code:'example/intake/record.js（示意路径，文件未核验）'
+}];
+const OBJ = [{
+  id:'O1',name:'申请单',sub:'虚构字段：申请人、用途、状态',features:['F-01'],
+  note:'示例生命周期仅覆盖草稿到待处理；后续处理不在本例范围。'
+}];
+/* 持久化结构为数据链组数组，与原生视图一致；应用层也兼容旧模板的单组对象。 */
+const CHAIN = [{name:'申请受理（示意）',steps:[{f:'F-01',t:'提交申请内容并生成受理记录（示意）'}]}];
+const LIFECYCLE = {
+  title:'申请单状态主线（虚构）',start:[{text:'示例前提：已有草稿'}],
+  states:[
+    {name:'草稿',note:'可填写',items:[{text:'申请人填写用途'}]},
+    {name:'待处理',note:'提交完成',items:[{text:'本例不展开后续处理'}]}
+  ],
+  gaps:[{fwd:[{f:'F-01'}]}],loops:[],always:[]
+};
+const OBJ_MAP = {
+  width:620,height:180,
+  nodes:{O1:[130,90,'申请单','虚构业务对象'],M1:[490,90,'受理记录服务','虚构模块']},
+  edges:[['O1','M1','提交后形成记录']]
+};
+
+/* 完整卡片：首阶段只放前置条件；规则挂在处理步骤上，问题与调整横跨受影响阶段。 */
+const DEEP = {
+  'F-01':{
+    title:'提交申请单（虚构教学示例）',
+    meta:[['对象','申请单'],['能力','提交'],['性质','示例新增']],
+    banner:{adj:'A1',text:'此卡片为虚构示例；Q1 与 A1 只演示待确认事项的关联方式。'},
+    lead:'示例申请人检查草稿、确认提交，校验成功后得到受理结果；失败时保留草稿。',
+    codeNote:'未检查真实代码；所有 example/ 路径均为示意占位。',
+    note:'本卡片是教学模型，不是实际需求、代码审查结论或已运行测试结果。',
+    stages:[
+      {id:'ST0',name:'进入提交',sub:'前置条件',desc:'示例前提：申请人已登录，并打开本人草稿。'},
+      {id:'ST1',name:'校验并确认',sub:'提交前检查',desc:'检查身份、状态和必填内容，向申请人展示提交摘要。'},
+      {id:'ST2',name:'提交并返回',sub:'保存结果',desc:'再次校验后变更状态并形成受理记录；失败不改变草稿。'}
+    ],
+    pre:[
+      {id:'P1',cond:'不是申请人本人',act:'不允许提交',msg:'仅申请人可提交此申请单（示例提示）',links:['s1-1','s2-1']},
+      {id:'P2',cond:'申请单已不处于草稿状态',act:'提示刷新并查看结果',links:['R1','s2-1']}
+    ],
+    rules:[
+      {id:'R1',name:'身份与状态',when:'打开确认和提交时',what:'示例要求：当前用户为申请人，且申请单仍为草稿。',fail:'拒绝操作，申请单保持原状态。',status:'new',links:['P1','P2']},
+      {id:'R2',name:'用途必填',when:'确认与保存前',what:'示例要求：用途去除首尾空白后不能为空。',fail:'提示填写用途，不创建受理记录。',status:'new'},
+      {id:'R3',name:'重复提交口径待确认',when:'提交并返回时',what:'示例建议：相同请求标识返回原结果；最终行为由 Q1 确认。',fail:'未确认前不把该建议视为已实现或已定稿。',status:'pending',links:['Q1','A1']}
+    ],
+    steps:{
+      ST1:[
+        {id:'s1-1',t:'检查提交资格',d:'按示例规则检查申请人和草稿状态。',tag:'示例新增',rules:['R1'],links:['P1','P2']},
+        {id:'s1-2',t:'检查内容并确认',d:'校验用途并显示提交摘要；取消确认时保留草稿。',tag:'示例新增',rules:['R2']}
+      ],
+      ST2:[
+        {id:'s2-1',t:'复核并保存',d:'重新检查权限、状态及用途，在同一提交边界内更新状态和受理记录。',tag:'示例新增',rules:['R1','R2'],links:['C1']},
+        {id:'s2-2',t:'返回受理结果',d:'返回申请单状态及受理标识；重复请求行为等待示例问题确认。',tag:'示例待确认',adj:true,rules:['R3'],links:['Q1','A1']}
+      ]
+    },
+    stepCode:{ST1:'example/request/validate.js（示意路径）',ST2:'example/request/submit.js（示意路径）'},
+    adj:[{id:'A1',span:[1,2],links:['Q1','R3','s2-2']}],
+    qs:[{id:'Q1',span:[1,2],ends:['确认页：可再次点击','提交端：重复行为待定'],links:['A1','R3','s2-2']}],
+    compat:[{
+      id:'C1',name:'草稿和受理记录的一致性（示例）',impact:'提交失败时不得留下孤立受理记录。',
+      need:'示例设计需约定一致性边界；未检查真实实现。',status:'confirm',
+      regress:'建议验收：模拟保存失败后，申请单仍为草稿且无新增受理记录。',span:[2,2],links:['s2-1']
+    }],
+    related:[]
+  }
+};
+const CODE_NOTE = '虚构教学示例；未检查真实代码。';
+const NOTE_STATIC = '示例路径、状态及结论不代表任何真实项目。';
+/* =====================================================================
+   二、应用（通用，一般不用改）
+   ===================================================================== */
+const $ = (s,r=document)=>r.querySelector(s), $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+const CHAIN_VIEW = Array.isArray(CHAIN) ? {name:CHAIN.map(c=>c.name).join(' / ')||'业务数据',steps:CHAIN.flatMap(c=>c.steps||[])} : CHAIN;
+const FSTAT = {new:'新增',change:'改造',minor:'小改',ok:'无需改',pending:'待定'};
+const FSTAT_B = {new:'b-new',change:'b-chg',minor:'b-minor',ok:'b-ok',pending:'b-pend'};
+const ASTAT = {merge:'合并',new:'新增',change:'改造',pending:'待定',confirm:'需确认',defer:'延期',ok:'无需改'};
+const ASTAT_B = {merge:'b-merge',new:'b-new',change:'b-change',pending:'b-pending',confirm:'b-confirm',defer:'b-defer',ok:'b-ok'};
+const SEV = {block:'阻塞开发',impact:'影响行为',low:'文档问题'};
+const QTYPE_B = {'冲突':'b-conf','缺失':'b-miss','笔误':'b-typo'};
+const USE = {ok:['✔','已使用'],miss:['✖','该用没用'],q:['?','待确认'],new:['○','功能未实现']};
+const MNEED = {ok:'无需改',new:'需新增',change:'需改',confirm:'需确认',pending:'待定'};
+const MNEED_B = {ok:'b-ok',new:'b-new',change:'b-change',confirm:'b-confirm',pending:'b-pend'};
+const GKIND = {F:'功能',Q:'冲突与缺失',A:'需要调整',G:'共用规则',M:'已有模块',O:'业务对象'};
+const GKIND_ORDER = ['F','G','Q','A','M','O'];
+const fbadge = s => `<span class="badge ${FSTAT_B[s]}">${FSTAT[s]}</span>`;
+const abadge = s => `<span class="badge ${ASTAT_B[s]}">${ASTAT[s]}</span>`;
+const qbadge = q => `<span class="badge ${QTYPE_B[q.type]}">${q.type}</span>`;
+const sbadge = q => `<span class="badge b-${q.sev}">${SEV[q.sev]}</span>`;
+
+/* 全局索引与关系 */
+FEAT.forEach(f=>f.deep = !!DEEP[f.id]);
+const GE = {};
+FEAT.forEach(x=>GE[x.id]=Object.assign({kind:'F'},x));
+QS.forEach(x=>GE[x.id]=Object.assign({kind:'Q'},x));
+ADJ.forEach(x=>GE[x.id]=Object.assign({kind:'A'},x));
+GRULES.forEach(x=>GE[x.id]=Object.assign({kind:'G'},x));
+MODS.forEach(x=>GE[x.id]=Object.assign({kind:'M'},x));
+OBJ.forEach(x=>GE[x.id]=Object.assign({kind:'O'},x));
+const GADJ = {};
+const gset = id => GADJ[id] || (GADJ[id]=new Set());
+function glink(a,b){ if(!GE[a]||!GE[b]||a===b) return; gset(a).add(b); gset(b).add(a); }
+FEAT.forEach(f=>{ [...f.qs,...f.adj,...f.mods,...f.rel].forEach(x=>glink(f.id,x)); });
+QS.forEach(q=>q.features.forEach(f=>glink(q.id,f)));
+ADJ.forEach(a=>{ (a.features||[]).forEach(f=>glink(a.id,f)); (a.blocked||[]).forEach(q=>glink(a.id,q)); });
+GRULES.forEach(g=>{ Object.keys(g.uses).forEach(f=>glink(g.id,f)); g.q.forEach(q=>glink(g.id,q)); g.adj.forEach(a=>glink(g.id,a)); });
+MODS.forEach(m=>{ m.features.forEach(f=>glink(m.id,f)); m.q.forEach(q=>glink(m.id,q)); m.adj.forEach(a=>glink(m.id,a)); });
+OBJ.forEach(o=>o.features.forEach(f=>glink(o.id,f)));
+const gtitle = e => e.kind==='F'?e.name : e.kind==='Q'||e.kind==='A'?e.title : e.name;
+const featQ = f => GE[f].qs.map(q=>GE[q]);
+const deepCardsWith = id => Object.keys(DEEP).filter(fid=>(DEEP[fid].qs||[]).some(x=>x.id===id) || (DEEP[fid].adj||[]).some(x=>x.id===id) || (DEEP[fid].banner&&DEEP[fid].banner.adj===id));
+
+const App = {view:'l2', sel:null, feature:null, cardMode:'deep', l2mode:'grid', filter:null, blockedOnly:false, chain:false};
+const VIEWS = [
+  ['l2','功能清单',()=>FEAT.length],['l1','业务全貌',null],['qboard','冲突看板',()=>QS.length],
+  ['rules','共用规则',()=>GRULES.length],['aboard','改造清单',()=>ADJ.filter(a=>a.status!=='ok').length],['imap','影响地图',()=>MODS.length]
+];
+const viewEl = $('#view'), inspEl = $('#insp');
+const isDeepView = () => App.view==='card' && !!DEEP[App.feature] && App.cardMode==='deep';
+/* 功能卡片顶部的「完整卡片 / 简版卡片」切换；缺少完整卡片时禁用 */
+function cardToggle(fid, mode){
+  const has = !!DEEP[fid];
+  return `<div class="seg"><button data-cardmode="deep" class="${mode==='deep'?'on':''}" ${has?'':'disabled title="这个功能还没有完整卡片"'}>完整卡片${has?'':'（缺）'}</button><button data-cardmode="light" class="${mode==='light'?'on':''}">简版卡片</button></div>`;
+}
+
+function renderTabs(){
+  const blk = QS.filter(q=>q.sev==='block').length;
+  document.title = PRD_META.title + ' · PRD 研发视图';
+  $('#ptitle').textContent = PRD_META.title;
+  $('#pmeta').textContent = `${FEAT.length} 个功能 · ${QS.length} 个问题（${blk} 个阻塞开发）`;
+  const b = $('#pbranch');
+  if(PRD_META.badge){ b.textContent = PRD_META.badge.text; b.hidden=false; if(PRD_META.badge.sel) b.dataset.sel = PRD_META.badge.sel; } else b.hidden = true;
+  $('#vtabs').innerHTML = VIEWS.map(([id,n,c])=>`<button class="vtab ${App.view===id||(App.view==='card'&&id==='l2')?'on':''}" data-view="${id}">${n}${c?`<em>${c()}</em>`:''}</button>`).join('');
+}
+function setView(v){ DeepCard.unmount(); App.view=v; App.feature=null; App.sel=null; App.chain=false; render(); viewEl.scrollTop=0; }
+function openFeature(id, focus){
+  DeepCard.unmount(); App.view='card'; App.feature=id; App.sel=null; App.cardMode='deep'; render();
+  if(focus && DEEP[id]) DeepCard.focus(focus);
+}
+function render(){
+  renderTabs();
+  viewEl.classList.toggle('cardmode', App.view==='card');
+  if(App.view==='card'){
+    if(isDeepView()){ DeepCard.mount(viewEl, inspEl, App.feature); return; }
+    restoreInsp(); renderLightCard(App.feature); App.sel=App.feature; markSel(); renderInsp(App.sel); return;
+  }
+  restoreInsp();
+  ({l2:renderL2,l1:renderL1,qboard:renderQBoard,rules:renderRules,aboard:renderABoard,imap:renderIMap})[App.view]();
+  markSel(); renderInsp(App.sel);
+}
+function restoreInsp(){ if(!$('#ipane')) inspEl.innerHTML='<div class="ipane" id="ipane"></div>'; }
+function select(id){
+  if(!GE[id]) return;
+  App.sel = (App.sel===id) ? null : id;
+  App.chain=false; const cb=$('.chainbtn'); if(cb) cb.classList.remove('on');
+  markSel(); renderInsp(App.sel);
+}
+function markSel(){
+  const root = viewEl;
+  $$('[data-sel]',root).forEach(n=>n.classList.remove('on','rel'));
+  $('#pbranch').classList.remove('on');
+  root.classList.remove('dimroot','chain');
+  if(App.chain){
+    root.classList.add('dimroot','chain');
+    CHAIN_VIEW.steps.forEach(c=>$$(`[data-sel="${c.f}"]`,root).forEach(n=>n.classList.add('on')));
+    return;
+  }
+  if(!App.sel) return;
+  const rel = GADJ[App.sel] || new Set();
+  root.classList.add('dimroot');
+  $$('[data-sel]',root).forEach(n=>{ const id=n.dataset.sel; if(id===App.sel) n.classList.add('on'); else if(rel.has(id)) n.classList.add('rel'); });
+  if(PRD_META.badge && App.sel===PRD_META.badge.sel) $('#pbranch').classList.add('on');
+}
+
+/* 右侧详情 */
+function ghead(e){
+  let b = '';
+  if(e.kind==='F') b = fbadge(e.status) + `<span class="badge b-low">${OBJS.find(o=>o.id===e.obj).name} · ${e.cap}</span>`;
+  if(e.kind==='Q') b = qbadge(e) + sbadge(e);
+  if(e.kind==='A') b = abadge(e.status);
+  if(e.kind==='M') b = `<span class="badge ${MNEED_B[e.need]}">${MNEED[e.need]}</span><span class="badge b-low">${e.io}</span>`;
+  return `<div class="d-head k-${e.kind}"><span class="d-kind">${GKIND[e.kind]}</span><span class="d-id">${e.id}</span>${b}</div><h2>${gtitle(e)}</h2>`;
+}
+function grel(ids, title){
+  const groups = {};
+  ids.forEach(id=>{ if(!GE[id]) return; const k=GE[id].kind; (groups[k]=groups[k]||[]).push(id); });
+  const ks = GKIND_ORDER.filter(k=>groups[k]); if(!ks.length) return '';
+  return `<h3>${title||'关联内容'}</h3>` + ks.map(k=>`<div class="rgroup"><span>${GKIND[k]}</span>${groups[k].map(id=>`<button class="rchip k-${k}" data-sel="${id}"><b>${id}</b>${gtitle(GE[id])}</button>`).join('')}</div>`).join('');
+}
+function grefs(prd, code){
+  const r = [];
+  if(prd) r.push(`<div>PRD：<a href="${PRD_META.prdHref}" target="_blank">${prd}</a></div>`);
+  if(code) r.push(`<div>代码：${code}<br><span style="color:var(--faint)">${PRD_META.codeNote}</span></div>`);
+  return r.length ? `<div class="refs"><b>依据</b>${r.join('')}</div>` : '';
+}
+const deepBtns = id => deepCardsWith(id).map(fid=>`<button class="btn pri" data-open="${fid}" data-focus="${id}">▶ 在 ${fid} 卡片中查看</button> `).join('');
+function qrow(q){ return `<button class="lrow k-Q" data-sel="${q.id}"><span class="lid">${q.id}</span><span class="lt">${q.title}<small>${q.suggest}</small></span>${sbadge(q)}</button>`; }
+function arow(a){ return `<button class="lrow k-A" data-sel="${a.id}"><span class="lid">${a.id}</span><span class="lt">${a.title}<small>${a.after}</small></span>${abadge(a.status)}</button>`; }
+
+function renderInsp(id){
+  const p = $('#ipane'); if(!p) return;
+  if(!id){ p.innerHTML = inspOverview(); return; }
+  const e = GE[id]; let h = ghead(e);
+  const rel = [...(GADJ[id]||[])];
+  if(e.kind==='F'){
+    h += `<div class="blk" style="--c:#475569"><b>PRD 要求</b>${e.prd}</div><div class="blk" style="--c:var(--kR)"><b>当前系统情况</b>${e.now}</div><div class="blk" style="--c:var(--kA)"><b>需要做的事</b>${e.todo}</div>`;
+    h += `<p><button class="btn pri" data-open="${e.id}">▶ 打开功能卡片</button>${e.deep?'':' <span class="badge b-change">缺少完整卡片</span>'}</p>`;
+    if(e.qs.length) h += `<h3>冲突与缺失（${e.qs.length}）</h3>` + featQ(e.id).map(qrow).join('');
+    if(e.adj.length) h += `<h3>需要调整</h3>` + e.adj.map(a=>arow(GE[a])).join('');
+    h += grel(rel.filter(x=>['F','G','M','O'].includes(GE[x].kind)), '相关功能、规则和模块') + grefs(e.prdRef, e.code);
+  } else if(e.kind==='Q'){
+    const w = e.type==='缺失'?'缺失在哪':e.type==='笔误'?'问题在哪':'冲突在哪';
+    h += `<div class="blk" style="--c:var(--kQ)"><b>${w}</b>${e.where}</div><div class="blk" style="--c:#b45309"><b>影响什么</b>${e.impact}</div><div class="blk" style="--c:var(--ok)"><b>建议</b>${e.suggest}</div>`;
+    const db = deepBtns(e.id); if(db) h += `<p>${db}</p>`;
+    h += grel(rel, '受影响的功能和相关内容') + grefs(e.prd, e.code);
+  } else if(e.kind==='A'){
+    h += `<div class="cmp"><div><b>当前</b>${e.now}</div><div class="ar">→</div><div class="after"><b>改后</b>${e.after}</div></div>`;
+    if(e.blocked && e.blocked.length) h += `<div class="note warn">要先等 ${e.blocked.join('、')} 确认才能开工。</div>`;
+    const db = deepBtns(e.id); if(db) h += `<p>${db}</p>`;
+    h += grel(rel);
+  } else if(e.kind==='G'){
+    h += `<p>${e.desc}</p><h3>各功能的使用情况</h3><div class="ulist">` + Object.entries(e.uses).map(([f,u])=>`<div><span class="badge u-${u}" style="min-width:20px;text-align:center">${USE[u][0]}</span><button class="rchip k-F" data-sel="${f}"><b>${f}</b>${GE[f].name}</button><span style="color:var(--muted);font-size:12px">${USE[u][1]}</span></div>`).join('') + `</div>`;
+    if(e.note) h += `<div class="note">${e.note}</div>`;
+    h += grel(rel.filter(x=>GE[x].kind!=='F'));
+  } else if(e.kind==='M'){
+    h += `<p style="color:var(--muted)">${e.sub}</p><div class="note">${e.note}</div>` + grel(rel) + grefs(null, e.code);
+  } else if(e.kind==='O'){
+    h += `<p style="color:var(--muted)">${e.sub}</p><div class="note">${e.note}</div>` + grel(rel, '涉及这个对象的功能');
+  }
+  p.innerHTML = h;
+}
+function inspOverview(){
+  const cnt = s => FEAT.filter(f=>f.status===s).length;
+  const blk = QS.filter(q=>q.sev==='block');
+  const intro = {
+    l2:'按「业务对象 × 能力类型」排列全部功能点。卡片顶部的颜色是改造性质，红色数字是问题数；点击查看摘要，双击打开功能卡片。',
+    l1:`上面是${LIFECYCLE.title}，功能挂在状态和状态变化上；下面是业务对象之间的关系。点「点亮数据链」可以看「${CHAIN_VIEW.name}」在各功能间怎么流转。`,
+    qboard:'所有功能的冲突与缺失放在一起，按对开发的影响分三列。每张卡片列出受影响的功能，可以直接拿去和业务对。',
+    rules:'跨功能共用的规则只定义一次。表格里 ✖ 表示该用这条规则却没用，? 表示待确认，○ 表示所在功能还没实现。',
+    aboard:'所有功能里「需要调整」的事项，按性质分组；标了「等 Q…」的要先等问题确认。',
+    imap:'本 PRD 在中间，周围是会读写或受影响的已有模块。边框颜色表示是否需要改动。'
+  }[App.view] || '';
+  const missing = FEAT.filter(f=>!DEEP[f.id]).map(f=>f.id);
+  return `<div class="d-head k-F"><span class="d-kind">PRD</span><span class="d-id">${PRD_META.title}</span></div>
+    <h2>${VIEWS.find(v=>v[0]===App.view)[1]}</h2><p style="color:#334155">${intro}</p>
+    <div class="stats">
+      <div class="stat k-F"><strong>${FEAT.length}</strong><span>个功能：新增 ${cnt('new')} · 改造 ${cnt('change')} · 小改 ${cnt('minor')} · 无需改 ${cnt('ok')} · 待定 ${cnt('pending')}</span></div>
+      <div class="stat k-Q"><strong>${QS.length}</strong><span>个冲突与缺失，其中 ${blk.length} 个阻塞开发</span></div>
+      <div class="stat k-A"><strong>${ADJ.filter(a=>a.status!=='ok').length}</strong><span>项需要调整（含合并、新增、待定、需确认、延期）</span></div>
+      <div class="stat k-M"><strong>${MODS.filter(m=>m.need!=='ok').length}</strong><span>个已有模块需要新增、改动或确认</span></div>
+    </div>
+    <h3>阻塞开发的问题</h3>${blk.map(qrow).join('') || '<span style="color:var(--faint)">无</span>'}
+    <div class="refs"><b>说明</b><div>${PRD_META.scopeNote} 完整卡片 ${FEAT.length-missing.length} / ${FEAT.length}${missing.length?'，缺少：'+missing.join('、'):''}；每张卡片都可以切换成简版卡片。</div></div>`;
+}
+
+/* L2 功能清单 */
+function visibleFeat(f){
+  if(App.filter && f.status!==App.filter) return false;
+  if(App.blockedOnly && !f.qs.some(q=>GE[q].sev==='block')) return false;
+  return true;
+}
+function tileHtml(f){
+  const qs = featQ(f.id), blk = qs.some(q=>q.sev==='block');
+  return `<div class="tile fs-${f.status}" data-sel="${f.id}" title="双击打开功能卡片">
+    ${f.deep?'':'<span class="deep">缺完整卡片</span>'}<div class="tid">${f.id}</div><div class="tn">${f.name}</div>
+    <div class="tb">${fbadge(f.status)}${qs.length?`<span class="qn ${blk?'blk':''}">问题 ${qs.length}</span>`:''}${f.adj.length?`<span class="an">调整 ${f.adj.length}</span>`:''}</div>
+    <div class="tnow">${f.todo}</div></div>`;
+}
+function renderL2(){
+  const cnt = s => FEAT.filter(f=>f.status===s).length;
+  let h = `<div class="vpad"><div class="vhead"><h1>功能清单</h1><span class="sub">业务对象 × 能力类型 · 单击看摘要，双击或在右侧打开功能卡片</span></div>
+    <div class="l2bar">
+      <span style="color:var(--muted);font-size:12px">按性质筛选：</span>
+      ${['new','change','minor','ok','pending'].map(s=>`<button class="fchip ${App.filter===s?'on':''}" data-filter="${s}"><i class="fs-${s}" style="background:var(--fc)"></i>${FSTAT[s]}<b>${cnt(s)}</b></button>`).join('')}
+      <label class="tog"><input type="checkbox" id="blkOnly" ${App.blockedOnly?'checked':''}>只看被阻塞问题卡住的</label>
+      <div class="seg"><button data-mode="grid" class="${App.l2mode==='grid'?'on':''}">矩阵</button><button data-mode="table" class="${App.l2mode==='table'?'on':''}">表格</button></div>
+    </div>`;
+  if(App.l2mode==='grid'){
+    h += `<div class="l2grid" style="grid-template-columns:118px repeat(${CAPS.length},minmax(108px,1fr))"><div></div>${CAPS.map(c=>`<div class="ch">${c}</div>`).join('')}`;
+    OBJS.forEach(o=>{
+      h += `<div class="rh"><b>${o.name}</b><span>${o.sub}</span></div>`;
+      CAPS.forEach(c=>{ h += `<div class="cell">${FEAT.filter(f=>f.obj===o.id && f.cap===c && visibleFeat(f)).map(tileHtml).join('')}</div>`; });
+    });
+    h += `</div>`;
+  } else {
+    h += `<table class="l2tbl"><thead><tr><th>编号</th><th>功能点</th><th>对象 · 能力</th><th>PRD 要求</th><th>当前系统情况</th><th>需要做的事</th><th>性质</th><th>问题</th></tr></thead><tbody>`;
+    FEAT.filter(visibleFeat).forEach(f=>{
+      h += `<tr data-sel="${f.id}"><td class="fid">${f.id}</td><td class="fn">${f.name}${f.deep?'':' <span class="badge b-change">缺完整卡片</span>'}</td><td>${OBJS.find(o=>o.id===f.obj).name}<br><span style="color:var(--muted)">${f.cap}</span></td><td>${f.prd}</td><td>${f.now}</td><td>${f.todo}</td><td>${fbadge(f.status)}</td><td>${featQ(f.id).map(q=>`<span class="mini q" title="${q.title}">${q.id}</span>`).join(' ')}</td></tr>`;
+    });
+    h += `</tbody></table>`;
+  }
+  h += `<div class="l2note">${['new','change','minor','ok','pending'].map(s=>`<span class="fs-${s}"><i></i>${FSTAT[s]}</span>`).join('')}<span>「问题」红底表示含阻塞开发的问题</span><span>选中一个功能，相关功能会描边</span></div></div>`;
+  viewEl.innerHTML = h;
+}
+
+/* L1 业务全貌 */
+function lcItem(it){
+  if(it.text) return `<span style="color:var(--muted);font-size:12px">${it.text}</span>`;
+  const f = GE[it.f], qn = f.qs.length;
+  return `<button class="fop fs-${f.status}" data-sel="${it.f}"><b>${it.f}</b>${it.label||f.name}${qn?`<span class="qn">Q${qn}</span>`:''}</button>`;
+}
+function renderL1(){
+  const L = LIFECYCLE, n = L.states.length;
+  const cols = `40px 150px 1fr ${Array(n-1).fill('150px 1fr').join(' ')}`;
+  let sm = `<div class="startdot" title="开始"></div><div class="gut">${(L.start||[]).map(it=>`<div class="arrow">${lcItem(it)}<div class="ln"></div></div>`).join('')}</div>`;
+  L.states.forEach((s,i)=>{
+    sm += `<div class="sbox"><h3>${s.name}<span>${s.note||''}</span></h3><div class="ops">${s.items.map(lcItem).join('')}</div></div>`;
+    if(i<n-1){ const g = L.gaps[i]||{};
+      sm += `<div class="gut">${(g.fwd||[]).map(it=>`<div class="arrow">${lcItem(it)}<div class="ln"></div></div>`).join('')}${(g.back||[]).map(it=>`<div class="arrow back"><div class="ln"></div>${lcItem(it)}</div>`).join('')}${(g.extra||[]).map(it=>`<div class="arrow">${lcItem(it)}</div>`).join('')}</div>`; }
+  });
+  const loops = (L.loops||[]).map(l=>`<div class="backrow" style="grid-template-columns:${cols}"><div class="backarc" style="grid-column:${3+2*l.to} / ${4+2*l.from}">${lcItem({f:l.f,label:l.label})}</div></div>`).join('');
+  let h = `<div class="vpad"><div class="vhead"><h1>业务全貌</h1><span class="sub">状态主线 · 业务对象关系 · 点任意功能看摘要，双击打开卡片</span></div>`;
+  h += `<div class="lane"><h2>${L.title} <small>功能挂在状态（框内）和状态变化（箭头上）；左侧色条是改造性质</small>
+    <button class="chainbtn ${App.chain?'on':''}" data-chain="1" style="margin-left:auto">点亮「${CHAIN_VIEW.name}」的数据链</button></h2>
+    <div style="overflow-x:auto"><div class="sm" style="grid-template-columns:${cols}">${sm}</div>${loops}</div>
+    <div class="allstate">所有状态都可以：${(L.always||[]).map(lcItem).join('')}</div>
+    ${App.chain?`<div class="chainline">${CHAIN_VIEW.steps.map((c,i)=>`${i?'→':''}<span class="cstep"><b>${c.f}</b> ${c.t}</span>`).join(' ')}</div>`:''}
+  </div>`;
+  h += `<div class="lane"><h2>业务对象关系 <small>深色框是本 PRD 管理的对象，浅色框是已有模块；点击查看谁在用</small></h2>${objMapSvg()}</div></div>`;
+  viewEl.innerHTML = h;
+}
+function objMapSvg(){
+  const N = OBJ_MAP.nodes, W=160, H=50;
+  const pt = (a,b)=>{
+    const [x1,y1]=N[a],[x2,y2]=N[b]; const dx=x2-x1, dy=y2-y1;
+    const sx = Math.abs(dx)<1?0:(W/2)/Math.abs(dx), sy = Math.abs(dy)<1?0:(H/2)/Math.abs(dy);
+    const s = Math.min(sx||Infinity, sy||Infinity);
+    return [x1+dx*s, y1+dy*s, x2-dx*s-(dx?Math.sign(dx)*4:0), y2-dy*s-(dy?Math.sign(dy)*4:0)];
+  };
+  let s = `<svg class="omap" viewBox="0 0 ${OBJ_MAP.width} ${OBJ_MAP.height}" xmlns="http://www.w3.org/2000/svg"><defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker></defs>`;
+  let labels = '';
+  OBJ_MAP.edges.forEach(([a,b,l])=>{ const [x1,y1,x2,y2]=pt(a,b); const mx=(x1+x2)/2,my=(y1+y2)/2; const w=l.length*10.5+8;
+    s += `<line class="edge" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+    labels += `<rect class="elbg" x="${mx-w/2}" y="${my-9}" width="${w}" height="16" rx="4"/><text class="el" x="${mx}" y="${my+3}">${l}</text>`; });
+  Object.entries(N).forEach(([id,[x,y,t,sub]])=>{ const internal = GE[id] && GE[id].kind==='O';
+    s += `<g class="onode ${internal?'int':''}" ${GE[id]?`data-sel="${id}"`:''}><rect x="${x-W/2}" y="${y-H/2}" width="${W}" height="${H}" rx="9"/><text x="${x}" y="${y-3}">${t}</text><text class="s" x="${x}" y="${y+14}">${sub}</text></g>`; });
+  return s + labels + '</svg>';
+}
+
+/* 冲突看板 */
+function renderQBoard(){
+  let h = `<div class="vpad"><div class="vhead"><h1>冲突看板</h1><span class="sub">全部 ${QS.length} 个冲突与缺失 · 按对开发的影响分组 · 每张卡片标出受影响的功能</span></div><div class="board" style="grid-template-columns:repeat(3,minmax(300px,1fr))">`;
+  ['block','impact','low'].forEach(c=>{
+    const list = QS.filter(q=>q.sev===c);
+    h += `<div class="col"><h3>${sbadge({sev:c})}<em>${list.length} 个</em></h3>${list.map(q=>`<div class="bcard k-Q" data-sel="${q.id}"><div class="bh"><span class="bid">${q.id}</span>${qbadge(q)}<span class="bt">${q.title}</span></div><div class="bb">${q.impact}</div><div class="bf">${q.features.map(f=>`<span class="mini f" data-sel="${f}">${f} ${GE[f].name}</span>`).join('')}</div></div>`).join('')}</div>`;
+  });
+  viewEl.innerHTML = h + '</div></div>';
+}
+/* 共用规则 */
+function renderRules(){
+  const fs = FEAT.filter(f=>GRULES.some(g=>g.uses[f.id]));
+  let h = `<div class="vpad"><div class="vhead"><h1>共用规则</h1><span class="sub">规则 × 功能：一眼看出哪条规则被谁用、谁该用没用</span></div>
+    <div class="glegend">${Object.entries(USE).map(([k,[s,n]])=>`<span><b class="u-${k}">${s}</b>${n}</span>`).join('')}</div>
+    <div style="overflow-x:auto"><table class="gtbl"><thead><tr><th style="text-align:left">规则</th>${fs.map(f=>`<th class="fh" data-sel="${f.id}"><b>${f.id}</b><span>${f.name}</span></th>`).join('')}<th style="text-align:left">问题</th></tr></thead><tbody>`;
+  GRULES.forEach(g=>{
+    h += `<tr><td class="rn" data-sel="${g.id}"><b>${g.id} ${g.name}</b><small>${g.desc}</small></td>${fs.map(f=>{ const u=g.uses[f.id]; return u?`<td class="u u-${u}" data-sel="${g.id}" title="${f.id} ${f.name}：${USE[u][1]}">${USE[u][0]}</td>`:'<td></td>'; }).join('')}<td>${g.q.map(q=>`<span class="mini q" data-sel="${q}">${q}</span>`).join(' ')}</td></tr>`;
+  });
+  viewEl.innerHTML = h + '</tbody></table></div></div>';
+}
+/* 改造清单 */
+function renderABoard(){
+  const cols = ['merge','new','change','pending','confirm','defer'];
+  let h = `<div class="vpad"><div class="vhead"><h1>改造清单</h1><span class="sub">所有功能需要调整的事项 · 标「等 Q…」的要先等业务确认</span></div><div class="board" style="grid-template-columns:repeat(${cols.length},minmax(190px,1fr))">`;
+  cols.forEach(c=>{
+    const list = ADJ.filter(a=>a.status===c);
+    h += `<div class="col"><h3>${abadge(c)}<em>${list.length} 项</em></h3>${list.map(a=>`<div class="bcard k-A" data-sel="${a.id}"><div class="bh"><span class="bid">${a.id}</span><span class="bt">${a.title}</span></div><div class="bb">${a.after}</div><div class="bf">${(a.features||[]).map(f=>`<span class="mini f" data-sel="${f}">${f}</span>`).join('')}${(a.blocked||[]).map(q=>`<span class="mini q" data-sel="${q}">等 ${q}</span>`).join('')}</div></div>`).join('')}</div>`;
+  });
+  viewEl.innerHTML = h + '</div></div>';
+}
+/* 影响地图 */
+function renderIMap(){
+  const n = MODS.length;
+  const pos = MODS.map((m,i)=>{ const a = -Math.PI/2 + i*2*Math.PI/n; return [50+40*Math.cos(a), 50+40*Math.sin(a)]; });
+  const lines = pos.map(([x,y],i)=>{ const m=MODS[i]; const col={ok:'#16a34a',new:'#7c3aed',change:'#dc2626',confirm:'#f59e0b',pending:'#94a3b8'}[m.need];
+    return `<line x1="50" y1="50" x2="${x}" y2="${y}" stroke="${col}" stroke-dasharray="${m.need==='ok'?'0':'1.2 0.8'}" vector-effect="non-scaling-stroke" style="stroke-width:2"/>`; }).join('');
+  let h = `<div class="vpad"><div class="vhead"><h1>影响地图</h1><span class="sub">本 PRD 会读写或影响的已有模块 · 边框颜色表示是否需要改动 · 虚线表示需要新增、改动或确认</span></div>
+    <div class="imap"><svg viewBox="0 0 100 100" preserveAspectRatio="none">${lines}</svg>
+    <div class="mnode center" style="left:50%;top:50%"><b>${PRD_META.title} PRD</b><span>${FEAT.length} 个功能</span></div>`;
+  MODS.forEach((m,i)=>{ const [x,y]=pos[i];
+    h += `<div class="mnode n-${m.need}" data-sel="${m.id}" style="left:${x}%;top:${y}%"><b>${m.name}</b><div class="mi">${m.sub}</div><div class="mi"><span class="badge ${MNEED_B[m.need]}">${MNEED[m.need]}</span><span>${m.io}</span><span>涉及 ${m.features.join('、')}</span></div></div>`; });
+  viewEl.innerHTML = h + '</div></div>';
+}
+/* 简版功能卡片 */
+function renderLightCard(id){
+  const f = GE[id];
+  const useRules = GRULES.filter(g=>g.uses[id]);
+  const inChain = CHAIN_VIEW.steps.find(c=>c.f===id);
+  const none = '<span style="color:var(--faint)">无</span>';
+  viewEl.innerHTML = `<div class="crumb"><button class="back" data-view="l2">← 返回功能清单</button>功能清单 › <b>${id} ${f.name}</b>${cardToggle(id,'light')}</div><div class="vpad">
+    <div class="lc-head"><span class="code">${id}</span><span class="title">${f.name}</span>${fbadge(f.status)}<span class="badge b-low">${OBJS.find(o=>o.id===f.obj).name} · ${f.cap}</span></div>
+    ${f.deep
+      ? '<div class="lc-note" style="background:#f8fafc;border-color:var(--line);color:var(--muted)">简版卡片：只看 PRD 要求、当前系统情况、需要做的事和关联内容。阶段、规则、处理步骤和场景演示在「完整卡片」里。</div>'
+      : '<div class="lc-note" style="background:#fef2f2;border-color:#fecaca;color:#991b1b">这个功能还没有完整卡片。按规范每个功能都要有完整卡片，需要在 DEEP 里补齐。</div>'}
+    <div class="flow3"><div class="fb"><h4>PRD 要求</h4>${f.prd}</div><div class="ar">→</div><div class="fb"><h4>当前系统情况</h4>${f.now}</div><div class="ar">→</div><div class="fb todo"><h4>需要做的事</h4>${f.todo}</div></div>
+    <div class="lc4">
+      <div class="lb"><h4>冲突与缺失<span>${f.qs.length}</span></h4>${featQ(id).map(qrow).join('')||none}</div>
+      <div class="lb"><h4>需要调整<span>${f.adj.length}</span></h4>${f.adj.map(a=>arow(GE[a])).join('')||none}</div>
+      <div class="lb"><h4>用到的共用规则<span>${useRules.length}</span></h4>${useRules.map(g=>`<button class="lrow k-G" data-sel="${g.id}"><span class="lid">${g.id}</span><span class="lt">${g.name}<small>${USE[g.uses[id]][1]}</small></span><span class="badge u-${g.uses[id]}">${USE[g.uses[id]][0]}</span></button>`).join('')||none}</div>
+      <div class="lb"><h4>影响的已有模块<span>${f.mods.length}</span></h4>${f.mods.map(m=>`<button class="lrow k-M" data-sel="${m}"><span class="lid">${m}</span><span class="lt">${GE[m].name}<small>${GE[m].io} · ${MNEED[GE[m].need]}</small></span></button>`).join('')||none}</div>
+    </div>
+    <div class="relstrip"><span style="color:var(--muted);font-size:12px">相关功能：</span>${f.rel.map(r=>`<button class="rchip k-F" data-sel="${r}"><b>${r}</b>${GE[r].name}</button>`).join('')}
+      ${inChain?`<span class="badge b-pending">在「${CHAIN_VIEW.name}」数据链上：${inChain.t}</span>`:''}<span style="margin-left:auto;color:var(--faint);font-size:12px">双击相关功能可打开它的卡片</span></div>
+  </div>`;
+}
+
+/* 事件 */
+document.addEventListener('click', ev=>{
+  const v = ev.target.closest('[data-view]'); if(v){ setView(v.dataset.view); return; }
+  const o = ev.target.closest('[data-open]'); if(o){ openFeature(o.dataset.open, o.dataset.focus); return; }
+  const cm = ev.target.closest('[data-cardmode]');
+  if(cm){ if(cm.disabled || cm.dataset.cardmode===App.cardMode) return; DeepCard.unmount(); App.cardMode = cm.dataset.cardmode; App.sel=null; render(); return; }
+  if(isDeepView()){
+    const b = ev.target.closest('#pbranch'); if(b && b.dataset.sel) DeepCard.focus(b.dataset.sel);
+    return;                                    // 完整卡片自己处理其余点击
+  }
+  const fl = ev.target.closest('[data-filter]'); if(fl){ App.filter = App.filter===fl.dataset.filter?null:fl.dataset.filter; App.sel=null; render(); return; }
+  const md = ev.target.closest('[data-mode]'); if(md){ App.l2mode=md.dataset.mode; render(); return; }
+  const ch = ev.target.closest('[data-chain]'); if(ch){ App.chain=!App.chain; App.sel=null; renderL1(); markSel(); renderInsp(null); return; }
+  const s = ev.target.closest('[data-sel]'); if(s){ select(s.dataset.sel); return; }
+  if(viewEl.contains(ev.target) && App.view!=='card'){ App.sel=null; App.chain=false; markSel(); renderInsp(null); }
+});
+document.addEventListener('dblclick', ev=>{
+  if(isDeepView()) return;
+  const s = ev.target.closest('[data-sel]'); if(s && GE[s.dataset.sel] && GE[s.dataset.sel].kind==='F') openFeature(s.dataset.sel);
+});
+document.addEventListener('change', ev=>{ if(ev.target.id==='blkOnly'){ App.blockedOnly=ev.target.checked; App.sel=null; render(); } });
+document.addEventListener('keydown', ev=>{ if(ev.key==='Escape' && App.view!=='card'){ App.sel=null; App.chain=false; markSel(); renderInsp(null); } });
+
+/* =====================================================================
+   三、完整功能卡片渲染器（通用：按 DEEP[功能编号] 取数据）
+   ===================================================================== */
+const DeepCard = (()=>{
+  const STATUS = {ok:'无需改',new:'新增',pending:'待定',defer:'延期',change:'需改',merge:'合并',confirm:'需确认'};
+  /* 调整项 A 用全局的调整状态名（与改造清单一致），其他用卡片内的状态名 */
+  const ebadge = e => e && e.kind==='A' ? abadge(e.status) : badge(e && e.status);
+  const KIND = {ST:'阶段',P:'前置条件',S:'处理步骤',R:'规则',A:'需要调整',Q:'冲突与缺失',C:'兼容影响',F:'关联功能'};
+  const KIND_ORDER = ['ST','P','S','R','A','Q','C','F'];
+  const KCOLOR = {P:'#0e7490',R:'#2563eb',S:'#475569',A:'#c2410c',Q:'#be123c',C:'#047857',F:'#334155',ST:'#1e293b'};
+  const badge = st => st ? `<span class="badge b-${st}">${STATUS[st]}</span>` : '';
+  const qb = q => `<span class="badge ${q.type==='缺失'?'b-miss':'b-conf'}">${q.type}</span>`;
+
+  let D=null, FID=null, E={}, adj={}, ruleQ={}, LISTS={};
+  let mounted=false, matrix, wrap, paneD, paneS;
+  const state = {sel:null, src:null, lens:null, tab:'detail', scn:null, step:0};
+  const M = s => matrix.querySelector(s), MM = s => [...matrix.querySelectorAll(s)];
+
+  /* 按功能编号建立本卡片的索引 */
+  function load(fid){
+    FID = fid; D = DEEP[fid]; E = {}; adj = {}; ruleQ = {};
+    const gA = id => ADJ.find(a=>a.id===id), gQ = id => QS.find(q=>q.id===id);
+    const A = (D.adj||[]).map(p=>Object.assign({}, gA(p.id), p, {kind:'A'}));
+    if(D.banner && D.banner.adj && !A.some(a=>a.id===D.banner.adj)) A.unshift(Object.assign({}, gA(D.banner.adj), {kind:'A',banner:true}));
+    const Q = (D.qs||[]).map(p=>Object.assign({}, gQ(p.id), p, {kind:'Q',status:'pending'}));
+    const C = (D.compat||[]).map(c=>Object.assign({kind:'C'}, c));
+    const F = (D.related||[]).map(r=>Object.assign({kind:'F',name:GE[r.id]?GE[r.id].name:r.id}, r));
+    LISTS = {A, Q, C, F};
+    D.stages.forEach((s,i)=>E[s.id]=Object.assign({kind:'ST',col:i},s));
+    (D.pre||[]).forEach(x=>E[x.id]=Object.assign({kind:'P',col:0,status:'ok'},x));
+    (D.rules||[]).forEach(x=>E[x.id]=Object.assign({kind:'R'},x));
+    Object.keys(D.steps||{}).forEach(st=>D.steps[st].forEach((x,i)=>E[x.id]=Object.assign({kind:'S',stage:st,no:i+1,status:x.gap?'change':(x.adj?'pending':'ok')},x)));
+    [...A,...Q,...C,...F].forEach(x=>E[x.id]=x);
+    const ensure = id => adj[id] || (adj[id] = new Set());
+    const link = (a,b)=>{ if(!E[a]||!E[b]||a===b) return; ensure(a).add(b); ensure(b).add(a); };
+    Object.values(E).forEach(e=>{ (e.links||[]).forEach(b=>link(e.id,b)); (e.rules||[]).forEach(b=>link(e.id,b)); });
+    (D.rules||[]).forEach(r=>ruleQ[r.id]=[...ensure(r.id)].filter(id=>E[id].kind==='Q'));
+    state.scn = D.scenarios && D.scenarios.length ? D.scenarios[0].id : null; state.step = 0;
+  }
+  function stageMembers(i){
+    const s = new Set();
+    if(i===0) (D.pre||[]).forEach(p=>s.add(p.id));
+    ((D.steps||{})[D.stages[i].id]||[]).forEach(st=>{ s.add(st.id); (st.rules||[]).forEach(r=>s.add(r)); });
+    [...LISTS.A,...LISTS.Q,...LISTS.C].forEach(x=>{ if(x.span && x.span[0]<=i && i<=x.span[1]) s.add(x.id); });
+    return s;
+  }
+  const titleOf = e => e.kind==='P'?e.cond : e.kind==='R'?e.name : e.kind==='S'?e.t : (e.title||e.name);
+
+  function chipHtml(rid){
+    const r = E[rid]; const qs = ruleQ[rid]||[];
+    return `<span class="node chip" data-id="${rid}" data-kind="R" data-status="${r.status}" title="${r.what}"><i class="dot ${r.status}"></i>${rid} ${r.name}${qs.length?`<sup>${qs.join(' ')}</sup>`:''}</span>`;
+  }
+  function stepHtml(s){
+    const tagCls = s.gap ? 'gp' : (s.adj ? 'adj' : '');
+    return `<div class="node step ${s.gap?'gap':''}" data-id="${s.id}" data-kind="S" data-status="${E[s.id].status}"><span class="num">${E[s.id].no}</span>
+      <div class="sm2"><div class="st-t">${s.t}<span class="tag ${tagCls}">${s.tag}</span></div><div class="st-d">${s.d}</div>
+      ${(s.rules&&s.rules.length)?`<div class="chips">${s.rules.map(chipHtml).join('')}</div>`:''}</div></div>`;
+  }
+  const pHtml = p => `<div class="node pcard" data-id="${p.id}" data-kind="P" data-status="ok"><span class="pid">${p.id}</span><span class="cond">${p.cond}</span><div class="act">→ ${p.act}</div></div>`;
+  function itemHtml(e){
+    const col = `grid-column:${e.span[0]+1} / ${e.span[1]+2}`;
+    let head, body;
+    if(e.kind==='A'){ head = ebadge(e); body = `当前：${e.now}　→　${e.after}`; }
+    else if(e.kind==='Q'){ head = qb(e); body = e.impact; }
+    else { head = badge(e.status); body = `${e.impact}${e.status!=='ok'?'　·　'+e.need:''}`; }
+    const ends = e.ends ? `<div class="ends"><span>${e.ends[0]}</span><i></i><span>${e.ends[1]}</span></div>` : '';
+    return `<div class="node item k-${e.kind} ${e.kind==='Q'&&e.type==='缺失'?'miss':''}" style="${col}" data-id="${e.id}" data-kind="${e.kind}" data-status="${e.status}">
+      <div class="ih"><span class="iid">${e.id}</span><span class="it">${titleOf(e)}</span>${head}</div><div class="ib">${body}</div>${ends}</div>`;
+  }
+  const laneLabel = (label,no,hint) => `<div class="lane-label"><b>${label}</b><span class="no">${no}</span>${hint?`<small>${hint}</small>`:''}</div>`;
+  function buildMatrix(){
+    const n = D.stages.length;
+    matrix.style.gridTemplateColumns = `92px repeat(${n},minmax(214px,1fr))`;
+    matrix.style.minWidth = (92 + n*226 + 32) + 'px';
+    let h = '<div class="corner"></div>';
+    D.stages.forEach((s,i)=>{ h += `<div class="node stage" data-id="${s.id}" data-kind="ST" data-col="${i}"><span class="sn">${i+1}</span><div><b>${s.name}</b><span>${s.sub}</span></div></div>`; });
+    h += laneLabel('处理步骤与规则','③ ⑤ ⑦','规则按判断时机挂在步骤上；第 1 列是前置条件');
+    D.stages.forEach((s,i)=>{ h += `<div class="lane-cell" data-col="${i}">${i===0 ? (D.pre||[]).map(pHtml).join('') : ((D.steps||{})[s.id]||[]).map(stepHtml).join('')}</div>`; });
+    [['A','需要调整','⑥','横跨几列，表示影响几个阶段'],['Q','冲突与缺失','⑨','两端标出各阶段的不同口径'],['C','兼容影响','⑧','放在受影响的阶段下']].forEach(([k,label,no,hint])=>{
+      const list = LISTS[k].filter(x=>x.span);
+      h += laneLabel(label,no,hint) + `<div class="lane-sub" style="grid-template-columns:repeat(${n},minmax(0,1fr))">${list.map(itemHtml).join('')}</div>`;
+    });
+    h += '<svg id="links"></svg>';
+    matrix.innerHTML = h;
+  }
+  function buildLenses(){
+    const L = [['P','前置条件',(D.pre||[]).length],['R','规则',(D.rules||[]).length],['A','需要调整',LISTS.A.filter(a=>a.status!=='ok').length],['Q','冲突与缺失',LISTS.Q.length],['C','兼容影响',LISTS.C.length]];
+    $('#lenses').innerHTML = L.map(([k,n,c])=>`<button class="lens k-${k}" data-lens="${k}"><i></i>${n}<em>${c}</em></button>`).join('');
+    $('#legend').innerHTML = `<span>连线颜色：</span>` + ['P','S','R','A','Q','C'].map(k=>`<span class="k-${k}" style="--k:${KCOLOR[k]}"><i></i>${KIND[k]}</span>`).join('') +
+      `<span>状态：</span>${['ok','pending','defer','change','confirm'].map(badge).join(' ')}<span class="sp">点击卡片或规则标签查看关联 · Esc 取消</span>`;
+  }
+  function applyMarks(onIds, relIds, mode){
+    const all = MM('.node').concat($$('.banner'));
+    all.forEach(n=>n.classList.remove('on','rel','carry'));
+    matrix.classList.remove('dim','scn');
+    MM('.guide').forEach(g=>g.classList.remove('act'));
+    if(!mode) return;
+    all.forEach(n=>{ const id=n.dataset.id; if(onIds.has(id)) n.classList.add('on'); else if(relIds.has(id)) n.classList.add('rel'); });
+    MM('.chip.on,.chip.rel').forEach(c=>{ const s=c.closest('.step'); if(s) s.classList.add('carry'); });
+    matrix.classList.add('dim');
+    if(mode==='scn') matrix.classList.add('scn');
+  }
+  function select(id, src){
+    if(!E[id]) return;
+    if(E[id].kind==='F'){ openFeature(id); return; }
+    state.sel = id; state.lens = null; updateLensButtons(); showTab('detail');
+    const rel = E[id].kind==='ST' ? stageMembers(E[id].col) : (adj[id]||new Set());
+    applyMarks(new Set([id]), rel, 'sel');
+    if(E[id].kind==='ST'){ const g = M(`.guide[data-col="${E[id].col}"]`); if(g) g.classList.add('act'); }
+    state.src = (src && matrix.contains(src)) ? src : M(`[data-id="${id}"]`);
+    if(state.src && !src) state.src.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'});
+    drawLines(); renderDetail(id);
+  }
+  function clearAll(){
+    state.sel=null; state.src=null; state.lens=null; updateLensButtons(); clearLines();
+    if(state.tab==='scn') applyScn(); else { applyMarks(null,null,null); renderOverview(); }
+  }
+  function setLens(k){
+    if(state.lens===k){ clearAll(); return; }
+    state.sel=null; state.src=null; state.lens=k; updateLensButtons(); showTab('detail'); clearLines();
+    applyMarks(new Set(Object.values(E).filter(e=>e.kind===k).map(e=>e.id)), new Set(), 'lens');
+    renderLensList(k);
+  }
+  function updateLensButtons(){ $$('.lens').forEach(b=>b.classList.toggle('on', b.dataset.lens===state.lens)); }
+  function clearLines(){ const svg=M('#links'); if(svg) svg.innerHTML=''; }
+  function box(el){ const r=el.getBoundingClientRect(), b=matrix.getBoundingClientRect(); return {l:r.left-b.left,r:r.right-b.left,t:r.top-b.top,b:r.bottom-b.top,cy:(r.top+r.bottom)/2-b.top}; }
+  function drawLines(){
+    const svg = M('#links'); if(!svg) return;
+    svg.setAttribute('width', matrix.scrollWidth); svg.setAttribute('height', matrix.scrollHeight); svg.innerHTML='';
+    const src = state.src; if(!state.sel || !src || E[state.sel].kind==='ST') return;
+    const a = box(src); let out='';
+    (adj[state.sel]||new Set()).forEach(rid=>{
+      const color = KCOLOR[E[rid].kind] || '#64748b';
+      MM(`[data-id="${rid}"]`).forEach(t=>{
+        if(t===src || t.contains(src) || src.contains(t)) return;
+        const b = box(t); let x1,y1=a.cy,x2,y2=b.cy,d;
+        if(b.l > a.r - 6){ x1=a.r; x2=b.l; const c=Math.max(30,(x2-x1)/2); d=`M${x1},${y1} C${x1+c},${y1} ${x2-c},${y2} ${x2},${y2}`; }
+        else if(b.r < a.l + 6){ x1=a.l; x2=b.r; const c=Math.max(30,(x1-x2)/2); d=`M${x1},${y1} C${x1-c},${y1} ${x2+c},${y2} ${x2},${y2}`; }
+        else { x1=a.r; x2=b.r; const bul=26+Math.min(70,Math.abs(y2-y1)/6); const xm=Math.max(x1,x2)+bul; d=`M${x1},${y1} C${xm},${y1} ${xm},${y2} ${x2},${y2}`; }
+        out += `<path d="${d}" stroke="${color}"/><circle cx="${x2}" cy="${y2}" r="3.2" fill="${color}"/>`;
+      });
+    });
+    svg.innerHTML = out + `<circle cx="${a.r}" cy="${a.cy}" r="3.6" fill="#0f172a"/>`;
+  }
+  function layoutGuides(){
+    MM('.guide').forEach(g=>g.remove());
+    const first = M('.lane-label'); if(!first) return;
+    const top = first.offsetTop - 6, h = matrix.scrollHeight - top - 12;
+    MM('.stage').forEach(st=>{
+      const g = document.createElement('div'); g.className='guide'; g.dataset.col=st.dataset.col;
+      g.style.left=(st.offsetLeft-6)+'px'; g.style.width=(st.offsetWidth+12)+'px'; g.style.top=top+'px'; g.style.height=h+'px';
+      matrix.insertBefore(g, matrix.firstChild);
+    });
+  }
+  function showTab(t){
+    state.tab = t;
+    $$('.ctabs button').forEach(b=>b.classList.toggle('on', b.dataset.ctab===t));
+    paneD.hidden = t!=='detail'; paneS.hidden = t!=='scn';
+  }
+  function head(e){
+    let st = '';
+    if(e.kind==='Q') st = qb(e); else if(e.status && e.kind!=='P') st = ebadge(e);
+    return `<div class="d-head k-${e.kind}"><span class="d-kind">${KIND[e.kind]}</span><span class="d-id">${e.id}</span>${st}</div><h2>${titleOf(e)}</h2>`;
+  }
+  function relHtml(ids, title){
+    const groups = {};
+    ids.forEach(id=>{ if(!E[id]) return; const k=E[id].kind; (groups[k]=groups[k]||[]).push(id); });
+    const keys = KIND_ORDER.filter(k=>groups[k]); if(!keys.length) return '';
+    return `<h3>${title||'关联内容'}</h3>` + keys.map(k=>`<div class="rgroup"><span>${KIND[k]}</span>${groups[k].map(id=>`<button class="rchip k-${k}" data-goto="${id}"><b>${id}</b>${titleOf(E[id])}</button>`).join('')}</div>`).join('');
+  }
+  function refsHtml(e, code){
+    const rows = [];
+    if(e.prd) rows.push(`<div>PRD：<a href="${PRD_META.prdHref}" target="_blank">${e.prd}</a></div>`);
+    if(code||e.code) rows.push(`<div>代码：${code||e.code}<br><span style="color:var(--faint)">${D.codeNote||PRD_META.codeNote}</span></div>`);
+    return rows.length ? `<div class="refs"><b>依据</b>${rows.join('')}</div>` : '';
+  }
+  const scnBtn = id => (id && (D.scenarios||[]).some(s=>s.id===id)) ? `<p><button class="btn pri" data-scn="${id}">▶ 演示这个场景</button></p>` : '';
+  function renderDetail(id){
+    const e = E[id]; let h = head(e); const rel = [...(adj[id]||[])];
+    if(e.kind==='R'){
+      h += `<div class="kv"><div>什么时候判断</div><div>${e.when}</div><div>判断什么</div><div>${e.what}</div><div>不通过时</div><div>${e.fail.replace(/：(.+)$/,'：<span class="msg">$1</span>')}</div></div>`;
+      if(e.extra) h += `<div class="note warn">${e.extra}</div>`;
+      h += scnBtn(e.scn) + relHtml(rel) + refsHtml(e);
+    } else if(e.kind==='Q'){
+      const w = e.type==='缺失' ? '缺失在哪' : e.type==='笔误' ? '问题在哪' : '冲突在哪';
+      if(e.ends) h += `<div class="ends k-Q" style="--k:var(--kQ);margin-bottom:6px"><span>${e.ends[0]}</span><i></i><span>${e.ends[1]}</span></div>`;
+      h += `<div class="blk" style="--c:var(--kQ)"><b>${w}</b>${e.where}</div><div class="blk" style="--c:#b45309"><b>影响什么</b>${e.impact}</div><div class="blk" style="--c:var(--ok)"><b>建议</b>${e.suggest}</div>`;
+      h += scnBtn(e.scn) + relHtml(rel) + refsHtml(e);
+    } else if(e.kind==='A'){
+      h += `<div class="cmp"><div><b>当前</b>${e.now}</div><div class="ar">→</div><div class="after"><b>改后</b>${e.after}</div></div>` + relHtml(rel);
+    } else if(e.kind==='C'){
+      h += `<div class="kv"><div>影响</div><div>${e.impact}</div><div>是否需改</div><div>${e.need}</div><div>回归时看</div><div>${e.regress}</div></div>` + relHtml(rel) + refsHtml(e);
+    } else if(e.kind==='P'){
+      h += `<div class="kv"><div>条件</div><div>${e.cond}${e.note?`<br><span style="color:var(--muted);font-size:12px">${e.note}</span>`:''}</div><div>处理</div><div>${e.act}</div>${e.msg?`<div>提示文案</div><div><span class="msg">${e.msg}</span></div>`:''}</div>`;
+      h += scnBtn(e.scn) + relHtml(rel) + refsHtml(e);
+    } else if(e.kind==='S'){
+      const stg = E[e.stage];
+      h += `<div class="kv"><div>所属阶段</div><div>${stg.name}</div><div>做什么</div><div>${e.d}</div><div>改造标记</div><div>${e.gap?'<span class="badge b-change">'+e.tag+'</span>':(e.adj?'<span class="badge b-pending">'+e.tag+'</span>':'<span class="badge b-ok">沿用</span>')}</div></div>`;
+      if(e.rules && e.rules.length) h += `<h3>这一步判断的规则</h3>` + e.rules.map(r=>`<button class="lrow k-R" data-goto="${r}"><span class="lid">${r}</span><span class="lt">${E[r].name}<small>${E[r].what}</small></span>${badge(E[r].status)}</button>`).join('');
+      h += relHtml(rel.filter(x=>!(e.rules||[]).includes(x)), '其他关联') + refsHtml(e, (D.stepCode||{})[e.stage]);
+    } else if(e.kind==='ST'){
+      h += `<p>${e.desc}</p>`;
+      const steps = e.col===0 ? (D.pre||[]) : ((D.steps||{})[e.id]||[]);
+      h += `<h3>${e.col===0?'前置条件':'处理步骤'}</h3>` + steps.map(s=>`<button class="lrow k-${e.col===0?'P':'S'}" data-goto="${s.id}"><span class="lid">${e.col===0?s.id:E[s.id].no}</span><span class="lt">${e.col===0?s.cond:s.t}<small>${e.col===0?s.act:s.d}</small></span></button>`).join('');
+      h += relHtml([...stageMembers(e.col)].filter(id=>['A','Q','C'].includes(E[id].kind)), '覆盖这个阶段的调整、冲突和兼容影响');
+    }
+    paneD.innerHTML = h;
+  }
+  function renderOverview(){
+    const todo = [...LISTS.A.filter(a=>a.status!=='ok'), ...LISTS.Q, ...LISTS.C.filter(c=>c.status!=='ok')];
+    paneD.innerHTML = `<div class="d-head k-ST"><span class="d-kind">功能卡片</span><span class="d-id">${FID}</span></div>
+      <h2>怎么看这张图</h2>
+      <ul class="how">
+        <li><b>横向</b>是一次操作的经过：${D.stages.map(s=>s.name).join(' → ')}。</li>
+        <li><b>纵向</b>是每个阶段要关注的四层：处理步骤与规则、需要调整、冲突与缺失、兼容影响。卡片横跨几列，就表示它涉及几个阶段。</li>
+        <li><b>点击</b>任意卡片或规则标签，会连线显示与它相关的内容，右侧给出详情；点击阶段标题，会列出这个阶段涉及的全部内容。</li>
+        ${(D.scenarios||[]).length?'<li>切到<b>场景演示</b>，跟着操作一遍，左侧同步点亮当前用到的步骤和规则。</li>':''}
+        <li>详情里的<b>关联功能</b>可以直接跳到对应的功能卡片。</li>
+      </ul>
+      <h3>需要处理的事</h3>
+      ${todo.map(e=>`<button class="lrow k-${e.kind}" data-goto="${e.id}"><span class="lid">${e.id}</span><span class="lt">${titleOf(e)}<small>${e.kind==='A'?e.after:e.kind==='Q'?e.suggest:e.need}</small></span>${e.kind==='Q'?qb(e):ebadge(e)}</button>`).join('')}
+      ${D.note?`<div class="refs"><b>说明</b><div>${D.note}</div></div>`:''}`;
+  }
+  function renderLensList(k){
+    const list = Object.values(E).filter(e=>e.kind===k);
+    paneD.innerHTML = `<div class="d-head k-${k}"><span class="d-kind">${KIND[k]}</span><span class="d-id">${list.length} 项</span></div><h2>${KIND[k]}</h2>` +
+      list.map(e=>{ const sub = k==='P'?e.act : k==='R'?`${e.when} · ${e.what}` : k==='A'?`${e.now} → ${e.after}` : e.impact;
+        return `<button class="lrow k-${k}" data-goto="${e.id}"><span class="lid">${e.id}</span><span class="lt">${titleOf(e)}<small>${sub}</small></span>${k==='Q'?qb(e):(k==='P'?'':ebadge(e))}</button>`; }).join('');
+  }
+  /* 场景演示的示意界面 */
+  function mockHtml(m){
+    m = m || {}; const mk = D.mock; if(!mk) return '';
+    const key = mk.key;
+    const rows = mk.rows.map(r=>Object.assign({}, r, (m.rows&&m.rows[r[key]])||{}));
+    let h = `<div class="mock ${m.popup?'haspop':''}"><div class="mt">${mk.title}<span>示意数据</span></div><table><colgroup>${mk.cols.map(c=>`<col style="${c.w?`width:${c.w}px`:''}">`).join('')}</colgroup><thead><tr>${mk.cols.map(c=>`<th>${c.label}</th>`).join('')}</tr></thead><tbody>`;
+    rows.forEach(r=>{
+      h += `<tr class="${m.focus===r[key]?'f':''}">` + mk.cols.map(c=>{
+        let v = r[c.k];
+        let cell = v ? (c.action ? `<span class="mod ${r.warn?'w':''}">${v}</span>` : v) : `<span class="em">${c.empty||''}</span>`;
+        if(c.sub && r[c.sub]) cell += `<span class="sc">${r[c.sub]}</span>`;
+        if(c.action) cell += r.act ? `<span class="srch ${m.press===r[key]?'press':''}">🔍</span>` : `<span class="nosrch">${r.actOff||''}</span>`;
+        return `<td class="${c.action||c.k==='desc'?'wrap2':''}">${cell}</td>`;
+      }).join('') + `</tr>`;
+    });
+    h += `</tbody></table>`;
+    if(m.popup){
+      const p = m.popup;
+      h += `<div class="pop"><div class="ph">${p.title||''}</div>`;
+      if(p.first) h += `<div class="cand ${p.picked===p.first.name?'pk':''}"><span class="rd"></span><div><b>${p.first.name}</b> <span class="cc">${p.first.sub||''}</span></div></div>`;
+      if(p.firstOff) h += `<div class="nn-off">${p.firstOff}</div>`;
+      (p.items||[]).forEach(c=>{ h += `<div class="cand ${c.ok?'':'off'} ${p.picked===c.name?'pk':''} ${p.focusItem===c.name?'fi':''}"><span class="rd"></span><div><b>${c.name}</b> <span class="cc">${c.code||''}</span><div class="cc">${c.sub||''}</div>${c.ok?'':`<div class="why">${c.reason||''}</div>`}</div></div>`; });
+      h += `<div class="pf"><span>取消</span><span class="ok">确认</span></div></div>`;
+    }
+    if(m.toast) h += `<div class="toast t-${m.toast.tone}">${m.toast.text}</div>`;
+    return h + '</div>';
+  }
+  function curScn(){ return (D.scenarios||[]).find(s=>s.id===state.scn); }
+  function renderScn(){
+    const sc = curScn();
+    if(!sc){ paneS.innerHTML = '<p style="color:var(--muted)">这张卡片还没有场景演示。</p>'; return; }
+    const n = sc.steps.length, i = state.step, s = sc.steps[i];
+    paneS.innerHTML = `<div class="pills">${D.scenarios.map(x=>`<button class="pill ${x.id===sc.id?'on':''}" data-pick="${x.id}">${x.name}</button>`).join('')}</div>
+      <div class="sbar">${sc.steps.map((_,k)=>`<button class="${k<i?'done':k===i?'cur':''}" data-jump="${k}" title="第 ${k+1} 步"></button>`).join('')}</div>
+      <div class="now"><span class="who">${s.who}</span><span class="stg">阶段 ${E[s.st].col+1} · ${E[s.st].name}</span><p>${s.text}</p></div>
+      ${mockHtml(s.mock)}
+      <div class="nav"><span class="cnt">第 ${i+1} / ${n} 步 · 键盘 ← → 切换</span><button class="btn" data-nav="-1" ${i===0?'disabled':''}>上一步</button><button class="btn pri" data-nav="1" ${i===n-1?'disabled':''}>下一步</button></div>
+      ${relHtml(s.hl, '这一步用到的内容（左侧已点亮）')}`;
+  }
+  function applyScn(){
+    const sc = curScn(); if(!sc){ applyMarks(null,null,null); return; }
+    const s = sc.steps[state.step];
+    applyMarks(new Set([s.st]), new Set(s.hl), 'scn');
+    const g = M(`.guide[data-col="${E[s.st].col}"]`); if(g) g.classList.add('act');
+    const stEl = M(`.stage[data-id="${s.st}"]`);
+    if(stEl){ const l = stEl.offsetLeft-120, r = stEl.offsetLeft+stEl.offsetWidth+40;
+      if(l < wrap.scrollLeft || r > wrap.scrollLeft+wrap.clientWidth) wrap.scrollTo({left:Math.max(0,l),behavior:'smooth'}); }
+  }
+  function openScn(id){
+    state.sel=null; state.src=null; state.lens=null; updateLensButtons(); clearLines();
+    if(id){ state.scn=id; state.step=0; }
+    showTab('scn'); renderScn(); applyScn();
+  }
+  function goStep(k){ const sc = curScn(); if(!sc) return; state.step=Math.max(0,Math.min(sc.steps.length-1,k)); renderScn(); applyScn(); }
+
+  function mount(vEl, iEl, fid){
+    load(fid);
+    mounted = true; state.sel=null; state.src=null; state.lens=null; state.tab='detail';
+    const bannerHtml = D.banner ? `<div class="banner node k-A" data-id="${D.banner.adj}" data-kind="A" data-status="${(E[D.banner.adj]||{}).status||''}">${ebadge(E[D.banner.adj])}<span>${D.banner.text}</span></div>` : '';
+    vEl.innerHTML = `<div class="crumb"><button class="back" data-view="l2">← 返回功能清单</button>功能清单 › <b>${fid} ${GE[fid].name}</b>${cardToggle(fid,'deep')}</div>
+      <header class="chead"><div class="row"><span class="code">${fid}</span><span class="title">${D.title}</span>
+        <div class="meta">${(D.meta||[]).map(([k,v])=>`<span>${k} <b>${v}</b></span>`).join('')}</div>${bannerHtml}</div>
+        <div class="row"><div class="lead">${D.lead||''}</div>
+        <div class="lenses" id="lenses"></div><label class="toggle"><input type="checkbox" id="focusToggle">只看要处理的</label></div></header>
+      <div class="center"><div class="wrap" id="wrap"><div class="matrix" id="matrix"></div></div><div class="legend" id="legend"></div></div>`;
+    iEl.innerHTML = `<div class="ctabs"><button data-ctab="detail" class="on">详情</button>${(D.scenarios||[]).length?'<button data-ctab="scn">场景演示</button>':''}</div><div class="pane" id="pane-detail"></div><div class="pane" id="pane-scn" hidden></div>`;
+    matrix = $('#matrix'); wrap = $('#wrap'); paneD = $('#pane-detail'); paneS = $('#pane-scn');
+    buildMatrix(); buildLenses(); renderOverview();
+    requestAnimationFrame(layoutGuides);
+    matrix.addEventListener('click', ev=>{
+      const n = ev.target.closest('.node');
+      if(!n){ clearAll(); return; }
+      if(state.sel===n.dataset.id && state.src===n){ clearAll(); return; }
+      select(n.dataset.id, n);
+    });
+    const bn = $('.banner'); if(bn) bn.addEventListener('click', ()=>select(bn.dataset.id, null));
+    $('#lenses').addEventListener('click', ev=>{ const b=ev.target.closest('[data-lens]'); if(b) setLens(b.dataset.lens); });
+    $('.ctabs').addEventListener('click', ev=>{ const b=ev.target.closest('button'); if(!b) return; if(b.dataset.ctab==='scn') openScn(null); else { showTab('detail'); clearAll(); } });
+    $('#focusToggle').addEventListener('change', ev=>document.body.classList.toggle('focus', ev.target.checked));
+  }
+  function unmount(){ if(!mounted) return; mounted=false; document.body.classList.remove('focus'); inspEl.innerHTML='<div class="ipane" id="ipane"></div>'; }
+  function focus(id){ if(mounted && E[id]) select(id, null); }
+
+  document.addEventListener('click', ev=>{
+    if(!mounted) return;
+    const g = ev.target.closest('[data-goto]'); if(g){ select(g.dataset.goto, null); return; }
+    const s = ev.target.closest('[data-scn]'); if(s){ openScn(s.dataset.scn); return; }
+    const pk = ev.target.closest('[data-pick]'); if(pk){ openScn(pk.dataset.pick); return; }
+    const jp = ev.target.closest('[data-jump]'); if(jp){ goStep(+jp.dataset.jump); return; }
+    const nv = ev.target.closest('[data-nav]'); if(nv){ goStep(state.step + (+nv.dataset.nav)); return; }
+  });
+  document.addEventListener('keydown', ev=>{
+    if(!mounted) return;
+    if(ev.key==='Escape'){ if(state.tab==='scn') showTab('detail'); clearAll(); }
+    if(state.tab==='scn' && (ev.key==='ArrowRight'||ev.key==='ArrowLeft')){ ev.preventDefault(); goStep(state.step + (ev.key==='ArrowRight'?1:-1)); }
+  });
+  let rz; window.addEventListener('resize', ()=>{ if(!mounted) return; clearTimeout(rz); rz=setTimeout(()=>{ layoutGuides(); drawLines(); if(state.tab==='scn') applyScn(); },80); });
+
+  return {mount, unmount, focus};
+})();
+
+/* 启动 */
+render();
+
+</script>
+</body>
+</html>

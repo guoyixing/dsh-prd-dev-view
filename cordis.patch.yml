@@ -1,0 +1,11 @@
+# Host 端：skill、模型工具、HTTP 路由与修改守卫；Client 端由 package.json 的 dsh.client 加载。
+- insert:
+    - id: prd-dev-view
+      name: 'dsh-prd-dev-view'
+      config:
+        autoExport: true
+        guardFiles: true
+        codeChangeReminder: true
+        gitPath: git
+        registryDir: ''
+        viewsDir: .dsh/prd-views

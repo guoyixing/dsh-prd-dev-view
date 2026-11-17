@@ -1,0 +1,61 @@
+{
+  "name": "dsh-prd-dev-view",
+  "version": "0.1.0",
+  "license": "MIT",
+  "author": "guoyixing",
+  "homepage": "https://github.com/guoyixing/dsh-prd-dev-view#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/guoyixing/dsh-prd-dev-view.git"
+  },
+  "bugs": { "url": "https://github.com/guoyixing/dsh-prd-dev-view/issues" },
+  "keywords": ["dsh", "deepseek-harness", "prd", "requirements", "plugin"],
+  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
+  "scripts": {
+    "test": "node test/run.mjs",
+    "prepublishOnly": "npm test"
+  },
+  "devDependencies": {
+    "jsdom": "24.1.3",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "description": "PRD 研发视图：把 PRD 与代码对照整理成功能矩阵、完整功能卡片、冲突与改造总清单，并在会话视图页签中评审与跟踪进度。",
+  "type": "module",
+  "engines": {
+    "dsh": ">=0.2.2-rc.1 <0.3.0-0"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "lib",
+    "assets",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "docs",
+    "icon.svg"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-workspace",
+        "@deepseek-ai/dsh-client-ui-sidebar-right"
+      ]
+    }
+  }
+}
